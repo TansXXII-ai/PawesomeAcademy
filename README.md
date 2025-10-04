@@ -1,5 +1,5 @@
 # PawesomeAcademy
-Dog training management app
+Dog training management app - an XXII-ai App
 # Pawcademy
 
 Private dog training management system.
