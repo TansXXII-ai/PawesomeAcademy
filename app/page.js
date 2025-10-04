@@ -64,10 +64,17 @@ const gradeRequirements = [
 
 // ============= MAIN APP =============
 export default function PawcademyApp() {
-  const [data, setData] = useState(() => {
+const [data, setData] = useState(initialData);
+
+useEffect(() => {
+  // Only run in browser, not on server
+  if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('pawcademyData');
-    return saved ? JSON.parse(saved) : initialData;
-  });
+    if (saved) {
+      setData(JSON.parse(saved));
+    }
+  }
+}, []);
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState('login');
 
