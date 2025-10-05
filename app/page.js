@@ -130,11 +130,23 @@ function LoginPage({ onLogin }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
-  const handleSubmit = () => {
-    if (!onLogin(email, password)) {
-      setError('Invalid credentials');
+  const [loading, setLoading] = useState(false);
+
+const handleSubmit = async () => {
+  setLoading(true);
+  setError('');
+  
+  try {
+    const result = await api.login(email, password);
+    if (result.success) {
+      onLogin(result.user);
     }
-  };
+  } catch (err) {
+    setError(err.message || 'Login failed');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
