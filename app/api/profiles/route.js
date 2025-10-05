@@ -14,7 +14,7 @@ export async function GET(request) {
       return NextResponse.json({ error: 'userId required' }, { status: 400 });
     }
 
-    const result = await query(
+    const queryResult = await query(
       `SELECT 
         p.*,
         c.id as class_id,
@@ -26,6 +26,8 @@ export async function GET(request) {
       WHERE p.user_id = @userId`,
       [{ name: 'userId', type: 'Int', value: parseInt(userId) }]
     );
+
+    const result = queryResult.recordset;
 
     if (result.length === 0) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
@@ -58,12 +60,14 @@ export async function POST(request) {
     }
 
     // Check if profile exists
-    const existing = await query(
+    const existingQuery = await query(
       'SELECT id FROM Profiles WHERE user_id = @userId',
       [{ name: 'userId', type: 'Int', value: user_id }]
     );
+    
+    const existing = existingQuery.recordset;
 
-    let result;
+    let resultQuery;
     const params = [
       { name: 'userId', type: 'Int', value: user_id },
       { name: 'dogName', type: 'NVarChar', value: dog_name || null },
@@ -75,7 +79,7 @@ export async function POST(request) {
 
     if (existing.length > 0) {
       // Update existing profile
-      result = await query(
+      resultQuery = await query(
         `UPDATE Profiles 
          SET dog_name = @dogName,
              owners = @owners,
@@ -89,13 +93,15 @@ export async function POST(request) {
       );
     } else {
       // Create new profile
-      result = await query(
+      resultQuery = await query(
         `INSERT INTO Profiles (user_id, dog_name, owners, dog_photo_url, notes, class_id)
          OUTPUT INSERTED.*
          VALUES (@userId, @dogName, @owners, @dogPhotoUrl, @notes, @classId)`,
         params
       );
     }
+
+    const result = resultQuery.recordset;
 
     return NextResponse.json({ success: true, profile: result[0] });
   } catch (error) {
