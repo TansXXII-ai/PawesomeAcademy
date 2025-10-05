@@ -74,8 +74,8 @@ export async function GET(request) {
 
     sql += ' ORDER BY s.created_at DESC';
 
-    const submissions = await query(sql, params);
-    return NextResponse.json(submissions);
+    const result = await query(sql, params);
+    return NextResponse.json(result.recordset);
   } catch (error) {
     console.error('Get submissions error:', error);
     return NextResponse.json(
@@ -106,13 +106,15 @@ export async function POST(request) {
     }
 
     // Check if skill is already completed
-    const completionCheck = await query(
+    const completionCheckQuery = await query(
       'SELECT id FROM Completions WHERE user_id = @userId AND skill_id = @skillId',
       [
         { name: 'userId', type: 'Int', value: user_id },
         { name: 'skillId', type: 'Int', value: skill_id }
       ]
     );
+
+    const completionCheck = completionCheckQuery.recordset;
 
     if (completionCheck.length > 0) {
       return NextResponse.json(
@@ -122,7 +124,7 @@ export async function POST(request) {
     }
 
     // Check if there's already a pending submission
-    const pendingCheck = await query(
+    const pendingCheckQuery = await query(
       `SELECT id FROM Submissions 
        WHERE user_id = @userId 
        AND skill_id = @skillId 
@@ -132,6 +134,8 @@ export async function POST(request) {
         { name: 'skillId', type: 'Int', value: skill_id }
       ]
     );
+
+    const pendingCheck = pendingCheckQuery.recordset;
 
     if (pendingCheck.length > 0) {
       return NextResponse.json(
@@ -143,7 +147,7 @@ export async function POST(request) {
     // Determine initial status based on mode
     const initialStatus = mode === 'class_request' ? 'requested' : 'submitted';
 
-    const result = await query(
+    const resultQuery = await query(
       `INSERT INTO Submissions (user_id, skill_id, mode, video_url, member_notes, status)
        OUTPUT INSERTED.*
        VALUES (@userId, @skillId, @mode, @videoUrl, @memberNotes, @status)`,
@@ -156,6 +160,8 @@ export async function POST(request) {
         { name: 'status', type: 'NVarChar', value: initialStatus }
       ]
     );
+
+    const result = resultQuery.recordset;
 
     return NextResponse.json({ success: true, submission: result[0] });
   } catch (error) {
