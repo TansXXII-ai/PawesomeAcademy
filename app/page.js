@@ -225,10 +225,10 @@ function LoginPage({ onLogin }) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
-      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
+   <div className="min-h-screen flex items-center justify-center bg-[#322A3B]">
+      <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-4 border-[#dcac6e]">
         <div className="text-center mb-8">
-          <img src="/PawcademyLogo.png" alt="Logo" className="w-10 h-10 rounded-full" />
+          <img src="/PawcademyLogo.png" alt="Logo" className="w-32 h-32 mx-auto mb-4 rounded-full" />
           <h1 className="text-3xl font-bold text-gray-800">Potter Pawcademy</h1>
           <p className="text-gray-600">Dog Training Platform</p>
         </div>
