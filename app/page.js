@@ -233,47 +233,47 @@ function LoginPage({ onLogin }) {
           <p className="text-gray-600">Dog Training Platform</p>
         </div>
         
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="member@pawesomeacademy.com"
-              disabled={loading}
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••••••"
-              disabled={loading}
-            />
-          </div>
-          
-          {error && <p className="text-red-600 text-sm">{error}</p>}
-          
-<button
-  onClick={handleSubmit}
-  disabled={loading}
-  className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#32303b] transition disabled:opacity-50"
->
-  {loading ? 'Logging in...' : 'Login'}
-</button>
-        <div className="mt-6 pt-6 border-t text-sm text-gray-600">
-          <p className="font-semibold mb-2">Database Connected</p>
-          <p className="text-xs">Using Azure SQL Database for data storage</p>
-        </div>
-      </div>
-    </div>
+       <div className="space-y-4">
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+    <input
+      type="email"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      placeholder="member@pawesomeacademy.com"
+      disabled={loading}
+    />
+  </div>
+  
+  <div>
+    <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+    <input
+      type="password"
+      value={password}
+      onChange={(e) => setPassword(e.target.value)}
+      onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      placeholder="••••••••"
+      disabled={loading}
+    />
+  </div>
+  
+  {error && <p className="text-red-600 text-sm">{error}</p>}
+  
+  <button
+    onClick={handleSubmit}
+    disabled={loading}
+    className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#32303b] transition disabled:opacity-50"
+  >
+    {loading ? 'Logging in...' : 'Login'}
+  </button>
+</div>
+
+<div className="mt-6 pt-6 border-t text-sm text-gray-600">
+  <p className="font-semibold mb-2">Database Connected</p>
+  <p className="text-xs">Using Azure SQL Database for data storage</p>
+</div>
   );
 }
 
