@@ -228,8 +228,8 @@ function LoginPage({ onLogin }) {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
         <div className="text-center mb-8">
-          <Award className="w-16 h-16 mx-auto text-blue-600 mb-4" />
-          <h1 className="text-3xl font-bold text-gray-800">PawesomeAcademy</h1>
+          <img src="/PawcademyLogo.png" alt="Logo" className="w-10 h-10 rounded-full" />
+          <h1 className="text-3xl font-bold text-gray-800">Potter Pawcademy</h1>
           <p className="text-gray-600">Dog Training Platform</p>
         </div>
         
