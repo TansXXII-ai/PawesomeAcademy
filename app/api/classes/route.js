@@ -52,8 +52,8 @@ export async function GET(request) {
       "WHEN 'Saturday' THEN 6 " +
       "WHEN 'Sunday' THEN 7 END, c.time_slot";
 
-    const classes = await query(sql, params);
-
+   const result = await query(sql, params);
+    const classes = result.recordset;
     // If requested, include member count for each class
     if (includeMembers) {
       for (let cls of classes) {
