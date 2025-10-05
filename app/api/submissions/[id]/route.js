@@ -1,4 +1,4 @@
-// /app/api/submissions/[id]/route.js - UPDATED VERSION
+// /app/api/submissions/[id]/route.js
 import { NextResponse } from 'next/server';
 import { query, sql } from '@/lib/db';
 import { cookies } from 'next/headers';
@@ -73,4 +73,58 @@ export async function PATCH(request, { params }) {
     
     // Start transaction
     const pool = await sql.connect();
-    const transaction = new sql.Tr
+    const transaction = new sql.Transaction(pool);
+    
+    try {
+      await transaction.begin();
+      
+      // Update submission
+      await transaction.request()
+        .input('status', sql.NVarChar, status)
+        .input('notes', sql.NVarChar, trainer_notes || '')
+        .input('trainer', sql.Int, trainer_id || currentUser.id)
+        .input('id', sql.Int, parseInt(submissionId))
+        .query(`
+          UPDATE Submissions 
+          SET status = @status, 
+              trainer_notes = @notes, 
+              decided_by = @trainer, 
+              decided_at = GETDATE()
+          WHERE id = @id
+        `);
+      
+      // If approved, create completion
+      if (status === 'approved') {
+        // Check if completion already exists
+        const existingCompletion = await transaction.request()
+          .input('userId', sql.Int, user_id)
+          .input('skillId', sql.Int, skill_id)
+          .query('SELECT id FROM Completions WHERE user_id = @userId AND skill_id = @skillId');
+        
+        if (existingCompletion.recordset.length === 0) {
+          await transaction.request()
+            .input('userId', sql.Int, user_id)
+            .input('skillId', sql.Int, skill_id)
+            .input('trainerId', sql.Int, trainer_id || currentUser.id)
+            .query(`
+              INSERT INTO Completions (user_id, skill_id, approved_by)
+              VALUES (@userId, @skillId, @trainerId)
+            `);
+        }
+      }
+      
+      await transaction.commit();
+      
+      return NextResponse.json({ success: true });
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
+    }
+  } catch (error) {
+    console.error('Error updating submission:', error);
+    return NextResponse.json(
+      { error: 'Failed to update submission' },
+      { status: 500 }
+    );
+  }
+}
