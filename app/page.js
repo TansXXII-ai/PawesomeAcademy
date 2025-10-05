@@ -271,8 +271,8 @@ function LoginPage({ onLogin }) {
         </div>
         
         <div className="mt-6 pt-6 border-t text-sm text-gray-600">
-          <p className="font-semibold mb-2">Database Connected</p>
-          <p className="text-xs">Using Azure SQL Database for data storage</p>
+          <p className="font-semibold mb-2">For Members Only</p>
+          <p className="text-xs">You will need to use your email and password provided to you by your trainer </p>
         </div>
       </div>
     </div>
