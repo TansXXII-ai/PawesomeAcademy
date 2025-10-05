@@ -1,34 +1,37 @@
+// /app/api/profiles/route.js - UPDATED VERSION
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { cookies } from 'next/headers';
 
-// GET user profile
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
-    
+
     if (!userId) {
-      return NextResponse.json(
-        { error: 'User ID required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'userId required' }, { status: 400 });
     }
-    
+
     const result = await query(
-      'SELECT id, user_id, dog_name, owners, dog_photo_url, notes FROM Profiles WHERE user_id = @param0',
-      [parseInt(userId)]
+      `SELECT 
+        p.*,
+        c.id as class_id,
+        c.name as class_name,
+        c.day_of_week,
+        c.time_slot
+      FROM Profiles p
+      LEFT JOIN Classes c ON p.class_id = c.id
+      WHERE p.user_id = @userId`,
+      [{ name: 'userId', type: 'Int', value: parseInt(userId) }]
     );
-    
-    if (result.recordset.length === 0) {
-      return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
-      );
+
+    if (result.length === 0) {
+      return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
     }
-    
-    return NextResponse.json(result.recordset[0]);
+
+    return NextResponse.json(result[0]);
   } catch (error) {
-    console.error('Error fetching profile:', error);
+    console.error('Get profile error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch profile' },
       { status: 500 }
@@ -36,48 +39,65 @@ export async function GET(request) {
   }
 }
 
-// POST/PUT profile (create or update)
 export async function POST(request) {
   try {
-    const { user_id, dog_name, owners, dog_photo_url, notes } = await request.json();
+    const cookieStore = cookies();
+    const userCookie = cookieStore.get('user');
     
-    if (!user_id || !dog_name || !owners) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    if (!userCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
+
+    const body = await request.json();
+    const { user_id, dog_name, owners, dog_photo_url, notes, class_id } = body;
+
+    if (!user_id) {
+      return NextResponse.json({ error: 'user_id required' }, { status: 400 });
+    }
+
     // Check if profile exists
     const existing = await query(
-      'SELECT id FROM Profiles WHERE user_id = @param0',
-      [user_id]
+      'SELECT id FROM Profiles WHERE user_id = @userId',
+      [{ name: 'userId', type: 'Int', value: user_id }]
     );
-    
+
     let result;
-    
-    if (existing.recordset.length > 0) {
-      // Update
+    const params = [
+      { name: 'userId', type: 'Int', value: user_id },
+      { name: 'dogName', type: 'NVarChar', value: dog_name || null },
+      { name: 'owners', type: 'NVarChar', value: owners || null },
+      { name: 'dogPhotoUrl', type: 'NVarChar', value: dog_photo_url || null },
+      { name: 'notes', type: 'NVarChar', value: notes || null },
+      { name: 'classId', type: 'Int', value: class_id || null }
+    ];
+
+    if (existing.length > 0) {
+      // Update existing profile
       result = await query(
         `UPDATE Profiles 
-         SET dog_name = @param0, owners = @param1, dog_photo_url = @param2, notes = @param3, updated_at = GETDATE()
+         SET dog_name = @dogName,
+             owners = @owners,
+             dog_photo_url = @dogPhotoUrl,
+             notes = @notes,
+             class_id = @classId,
+             updated_at = GETDATE()
          OUTPUT INSERTED.*
-         WHERE user_id = @param4`,
-        [dog_name, owners, dog_photo_url || null, notes || '', user_id]
+         WHERE user_id = @userId`,
+        params
       );
     } else {
-      // Insert
+      // Create new profile
       result = await query(
-        `INSERT INTO Profiles (user_id, dog_name, owners, dog_photo_url, notes)
+        `INSERT INTO Profiles (user_id, dog_name, owners, dog_photo_url, notes, class_id)
          OUTPUT INSERTED.*
-         VALUES (@param0, @param1, @param2, @param3, @param4)`,
-        [user_id, dog_name, owners, dog_photo_url || null, notes || '']
+         VALUES (@userId, @dogName, @owners, @dogPhotoUrl, @notes, @classId)`,
+        params
       );
     }
-    
-    return NextResponse.json(result.recordset[0]);
+
+    return NextResponse.json({ success: true, profile: result[0] });
   } catch (error) {
-    console.error('Error saving profile:', error);
+    console.error('Save profile error:', error);
     return NextResponse.json(
       { error: 'Failed to save profile' },
       { status: 500 }
