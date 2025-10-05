@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { cookies } from 'next/headers';
+import { authenticateUser } from '@/lib/auth';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
