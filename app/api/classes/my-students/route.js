@@ -1,7 +1,9 @@
-// /app/api/classes/my-students/route.js
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { cookies } from 'next/headers';
+
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
