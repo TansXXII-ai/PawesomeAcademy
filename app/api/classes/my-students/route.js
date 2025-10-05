@@ -47,27 +47,29 @@ export async function GET(request) {
       "WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 " +
       "WHEN 'Sunday' THEN 7 END, c.time_slot";
 
-    const classes = await query(classesSql, params);
+    const classesResult = await query(classesSql, params);
+const classes = classesResult.recordset;
 
     // For each class, get the students and their progress
-    for (let cls of classes) {
-      const studentsResult = await query(
-        `SELECT 
-          u.id as user_id,
-          u.username,
-          u.email,
-          p.dog_name,
-          p.owners,
-          p.dog_photo_url,
-          (SELECT MAX(grade_number) FROM Grades WHERE user_id = u.id) as current_grade,
-          (SELECT COUNT(*) FROM Submissions 
-           WHERE user_id = u.id AND status IN ('requested', 'submitted')) as pending_submissions
-        FROM Profiles p
-        JOIN Users u ON p.user_id = u.id
-        WHERE p.class_id = @classId AND u.active = 1
-        ORDER BY p.dog_name, u.username`,
-        [{ name: 'classId', type: 'Int', value: cls.id }]
-      );
+ for (let cls of classes) {
+  const studentsQuery = await query(
+    `SELECT 
+      u.id as user_id,
+      u.username,
+      u.email,
+      p.dog_name,
+      p.owners,
+      p.dog_photo_url,
+      (SELECT MAX(grade_number) FROM Grades WHERE user_id = u.id) as current_grade,
+      (SELECT COUNT(*) FROM Submissions 
+       WHERE user_id = u.id AND status IN ('requested', 'submitted')) as pending_submissions
+    FROM Profiles p
+    JOIN Users u ON p.user_id = u.id
+    WHERE p.class_id = @classId AND u.active = 1
+    ORDER BY p.dog_name, u.username`,
+    [{ name: 'classId', type: 'Int', value: cls.id }]
+  );
+  const studentsResult = studentsQuery.recordset;  // Now this matches
 
       // Get detailed progress for each student
       for (let student of studentsResult) {
