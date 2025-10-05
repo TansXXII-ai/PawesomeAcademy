@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { cookies } from 'next/headers';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
 // GET all sections
 export async function GET(request) {
   try {
