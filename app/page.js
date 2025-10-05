@@ -2,107 +2,176 @@
 import React, { useState, createContext, useContext, useEffect } from 'react';
 import { Camera, Award, Book, User, LogOut, Menu, X, Check, Clock, AlertCircle, Upload, FileText, Star } from 'lucide-react';
 
-// ============= CONTEXT & DATA =============
-const AppContext = createContext();
+// ============= API CLIENT =============
+const API_BASE = '/api';
 
-// Initial data structure
-const initialData = {
-  users: [
-    { id: 1, email: 'member@test.com', password: 'member123', username: 'Sarah', role: 'member', active: true },
-    { id: 2, email: 'trainer@test.com', password: 'trainer123', username: 'Alex', role: 'trainer', active: true },
-    { id: 3, email: 'admin@test.com', password: 'admin123', username: 'Admin', role: 'admin', active: true }
-  ],
-  profiles: [
-    { id: 1, userId: 1, dogName: 'Max', owners: 'Sarah Johnson', dogPhoto: null, notes: 'Energetic golden retriever' }
-  ],
-  sections: [
-    { id: 1, name: 'Recall', description: 'Coming when called', order: 1, active: true },
-    { id: 2, name: 'Leads', description: 'Walking on lead', order: 2, active: true },
-    { id: 3, name: 'Life Skills', description: 'Everyday behaviors', order: 3, active: true },
-    { id: 4, name: 'Tricks', description: 'Fun tricks', order: 4, active: true },
-    { id: 5, name: 'Conditioning', description: 'Physical fitness', order: 5, active: true },
-    { id: 6, name: 'Real World', description: 'Public behavior', order: 6, active: true }
-  ],
-  skills: [
-    // Recall skills
-    { id: 1, sectionId: 1, title: 'Verbal cue', description: 'Come when called by name', difficulty: 1, points: 2, active: true, order: 1 },
-    { id: 2, sectionId: 1, title: 'Sit on return', description: 'Sit when they reach you', difficulty: 1, points: 2, active: true, order: 2 },
-    { id: 3, sectionId: 1, title: 'Whistle cue', description: 'Come to whistle sound', difficulty: 2, points: 5, active: true, order: 3 },
-    { id: 4, sectionId: 1, title: 'From 20 metres', description: 'Recall from 20m distance', difficulty: 3, points: 5, active: true, order: 4 },
-    { id: 5, sectionId: 1, title: 'Past a toy', description: 'Recall past distraction toy', difficulty: 3, points: 10, active: true, order: 5 },
-    { id: 6, sectionId: 1, title: 'From dog play', description: 'Come during play with other dogs', difficulty: 5, points: 15, active: true, order: 6 },
-    // Leads
-    { id: 7, sectionId: 2, title: 'Loose lead', description: 'Walk without pulling', difficulty: 1, points: 2, active: true, order: 1 },
-    { id: 8, sectionId: 2, title: 'Stop on cue', description: 'Stop when asked', difficulty: 2, points: 5, active: true, order: 2 },
-    // Life Skills
-    { id: 9, sectionId: 3, title: 'Wait at door', description: 'Wait before going through doors', difficulty: 1, points: 2, active: true, order: 1 },
-    { id: 10, sectionId: 3, title: 'Settle on mat', description: 'Calm on designated mat', difficulty: 2, points: 5, active: true, order: 2 },
-    // Tricks
-    { id: 11, sectionId: 4, title: 'Paw shake', description: 'Offer paw on cue', difficulty: 1, points: 2, active: true, order: 1 },
-    { id: 12, sectionId: 4, title: 'Spin', description: 'Turn in a circle', difficulty: 2, points: 5, active: true, order: 2 },
-    // Conditioning
-    { id: 13, sectionId: 5, title: 'Balance work', description: 'Stand on wobble board', difficulty: 2, points: 5, active: true, order: 1 },
-    // Real World
-    { id: 14, sectionId: 6, title: 'Cafe visit', description: 'Calm in public cafe', difficulty: 3, points: 10, active: true, order: 1 }
-  ],
-  submissions: [],
-  completions: [],
-  grades: [],
-  certificates: [],
-  settings: {
-    clubName: 'Pawcademy Training Club',
-    maxUploadSize: 50
+async function fetchAPI(endpoint, options = {}) {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    ...options,
+  });
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ error: 'Request failed' }));
+    throw new Error(error.error || 'API request failed');
   }
+  
+  return response.json();
+}
+
+const api = {
+  login: (email, password) => 
+    fetchAPI('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    }),
+  
+  logout: () => 
+    fetchAPI('/auth/logout', { method: 'POST' }),
+  
+  getSections: () => 
+    fetchAPI('/sections'),
+  
+  getSkills: (sectionId = null) => 
+    fetchAPI(`/skills${sectionId ? `?sectionId=${sectionId}` : ''}`),
+  
+  getProfile: (userId) => 
+    fetchAPI(`/profiles?userId=${userId}`),
+  
+  saveProfile: (profile) =>
+    fetchAPI('/profiles', {
+      method: 'POST',
+      body: JSON.stringify(profile),
+    }),
+  
+  getSubmissions: (userId = null, status = null) => {
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    if (status) params.append('status', status);
+    return fetchAPI(`/submissions?${params}`);
+  },
+  
+  createSubmission: (submission) =>
+    fetchAPI('/submissions', {
+      method: 'POST',
+      body: JSON.stringify(submission),
+    }),
+  
+  updateSubmission: (id, data) =>
+    fetchAPI(`/submissions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
+  
+  getGradeProgress: (userId) =>
+    fetchAPI(`/grades/progress?userId=${userId}`),
+  
+  achieveGrade: (data) =>
+    fetchAPI('/grades/achieve', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  getCertificates: (userId = null, status = null) => {
+    const params = new URLSearchParams();
+    if (userId) params.append('userId', userId);
+    if (status) params.append('status', status);
+    return fetchAPI(`/certificates?${params}`);
+  },
+  
+  requestCertificate: (data) =>
+    fetchAPI('/certificates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+  
+  approveCertificate: (data) =>
+    fetchAPI('/certificates', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    }),
 };
 
-const gradeRequirements = [
-  { grade: 1, points: 20 }, { grade: 2, points: 20 }, { grade: 3, points: 20 },
-  { grade: 4, points: 40 }, { grade: 5, points: 40 }, { grade: 6, points: 40 },
-  { grade: 7, points: 60 }, { grade: 8, points: 60 }, { grade: 9, points: 60 },
-  { grade: 10, points: 80 }, { grade: 11, points: 80 }, { grade: 12, points: 80 }
-];
+// ============= CONTEXT =============
+const AppContext = createContext();
+
+const gradeRequirements = {
+  1: 20, 2: 20, 3: 20,
+  4: 40, 5: 40, 6: 40,
+  7: 60, 8: 60, 9: 60,
+  10: 80, 11: 80, 12: 80
+};
 
 // ============= MAIN APP =============
 export default function PawcademyApp() {
-const [data, setData] = useState(initialData);
-
-useEffect(() => {
-  // Only run in browser, not on server
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('pawcademyData');
-    if (saved) {
-      setData(JSON.parse(saved));
-    }
-  }
-}, []);
   const [currentUser, setCurrentUser] = useState(null);
   const [view, setView] = useState('login');
+  const [sections, setSections] = useState([]);
+  const [skills, setSkills] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    localStorage.setItem('pawcademyData', JSON.stringify(data));
-  }, [data]);
-
-  const login = (email, password) => {
-    const user = data.users.find(u => u.email === email && u.password === password && u.active);
-    if (user) {
-      setCurrentUser(user);
-      setView('dashboard');
-      return true;
+  const login = async (email, password) => {
+    try {
+      const result = await api.login(email, password);
+      if (result.success) {
+        setCurrentUser(result.user);
+        setView('dashboard');
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-    return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     setCurrentUser(null);
     setView('login');
   };
 
-  const updateData = (key, value) => {
-    setData(prev => ({ ...prev, [key]: value }));
+  // Load initial data when user logs in
+  useEffect(() => {
+    if (currentUser) {
+      loadInitialData();
+    }
+  }, [currentUser]);
+
+  const loadInitialData = async () => {
+    setLoading(true);
+    try {
+      const [sectionsData, skillsData] = await Promise.all([
+        api.getSections(),
+        api.getSkills()
+      ]);
+      setSections(sectionsData);
+      setSkills(skillsData);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <AppContext.Provider value={{ data, updateData, currentUser, setView, logout }}>
+    <AppContext.Provider value={{ 
+      currentUser, 
+      sections, 
+      skills,
+      setSections,
+      setSkills,
+      setView, 
+      logout,
+      loading 
+    }}>
       <div className="min-h-screen bg-gray-50">
         {!currentUser ? (
           <LoginPage onLogin={login} />
@@ -110,12 +179,20 @@ useEffect(() => {
           <>
             <Navigation view={view} setView={setView} />
             <main className="container mx-auto px-4 py-6">
-              {view === 'dashboard' && <Dashboard />}
-              {view === 'sections' && <SectionsView />}
-              {view === 'inbox' && <TrainerInbox />}
-              {view === 'admin' && <AdminPanel />}
-              {view === 'profile' && <ProfileView />}
-              {view === 'certificates' && <CertificatesView />}
+              {loading ? (
+                <div className="flex justify-center items-center h-64">
+                  <div className="text-gray-500">Loading...</div>
+                </div>
+              ) : (
+                <>
+                  {view === 'dashboard' && <Dashboard />}
+                  {view === 'sections' && <SectionsView />}
+                  {view === 'inbox' && <TrainerInbox />}
+                  {view === 'admin' && <AdminPanel />}
+                  {view === 'profile' && <ProfileView />}
+                  {view === 'certificates' && <CertificatesView />}
+                </>
+              )}
             </main>
           </>
         )}
@@ -129,31 +206,30 @@ function LoginPage({ onLogin }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-
   const [loading, setLoading] = useState(false);
 
-const handleSubmit = async () => {
-  setLoading(true);
-  setError('');
-  
-  try {
-    const result = await api.login(email, password);
-    if (result.success) {
-      onLogin(result.user);
+  const handleSubmit = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const success = await onLogin(email, password);
+      if (!success) {
+        setError('Invalid credentials');
+      }
+    } catch (err) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    setError(err.message || 'Login failed');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600">
       <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md">
         <div className="text-center mb-8">
           <Award className="w-16 h-16 mx-auto text-blue-600 mb-4" />
-          <h1 className="text-3xl font-bold text-gray-800">Pawcademy</h1>
+          <h1 className="text-3xl font-bold text-gray-800">PawesomeAcademy</h1>
           <p className="text-gray-600">Dog Training Platform</p>
         </div>
         
@@ -165,7 +241,8 @@ const handleSubmit = async () => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="member@test.com"
+              placeholder="member@pawesomeacademy.com"
+              disabled={loading}
             />
           </div>
           
@@ -175,8 +252,10 @@ const handleSubmit = async () => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
               className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="••••••••"
+              disabled={loading}
             />
           </div>
           
@@ -184,17 +263,16 @@ const handleSubmit = async () => {
           
           <button
             onClick={handleSubmit}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
           >
-            Login
+            {loading ? 'Logging in...' : 'Login'}
           </button>
         </div>
         
         <div className="mt-6 pt-6 border-t text-sm text-gray-600">
-          <p className="font-semibold mb-2">Demo Accounts:</p>
-          <p>Member: member@test.com / member123</p>
-          <p>Trainer: trainer@test.com / trainer123</p>
-          <p>Admin: admin@test.com / admin123</p>
+          <p className="font-semibold mb-2">Database Connected</p>
+          <p className="text-xs">Using Azure SQL Database for data storage</p>
         </div>
       </div>
     </div>
@@ -203,13 +281,40 @@ const handleSubmit = async () => {
 
 // ============= NAVIGATION =============
 function Navigation({ view, setView }) {
-  const { currentUser, logout, data } = useContext(AppContext);
+  const { currentUser, logout } = useContext(AppContext);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
-  const profile = data.profiles.find(p => p.userId === currentUser.id);
-  const pendingCount = data.submissions.filter(s => 
-    s.status === 'submitted' || s.status === 'requested'
-  ).length;
+  const [profile, setProfile] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
+
+  useEffect(() => {
+    if (currentUser) {
+      loadProfile();
+      if (currentUser.role !== 'member') {
+        loadPendingCount();
+      }
+    }
+  }, [currentUser]);
+
+  const loadProfile = async () => {
+    try {
+      const data = await api.getProfile(currentUser.id);
+      setProfile(data);
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+    }
+  };
+
+  const loadPendingCount = async () => {
+    try {
+      const submissions = await api.getSubmissions(null, null);
+      const pending = submissions.filter(s => 
+        s.status === 'submitted' || s.status === 'requested'
+      ).length;
+      setPendingCount(pending);
+    } catch (error) {
+      console.error('Failed to load pending count:', error);
+    }
+  };
 
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: Award, roles: ['member', 'trainer', 'admin'] },
@@ -229,8 +334,8 @@ function Navigation({ view, setView }) {
           <div className="flex items-center space-x-3">
             <Award className="w-8 h-8 text-blue-600" />
             <div>
-              <h1 className="text-xl font-bold text-gray-800">Pawcademy</h1>
-              {profile && <p className="text-xs text-gray-600">{profile.dogName}</p>}
+              <h1 className="text-xl font-bold text-gray-800">PawesomeAcademy</h1>
+              {profile && <p className="text-xs text-gray-600">{profile.dog_name}</p>}
             </div>
           </div>
 
@@ -294,21 +399,57 @@ function Navigation({ view, setView }) {
 
 // ============= DASHBOARD =============
 function Dashboard() {
-  const { data, currentUser } = useContext(AppContext);
-  const profile = data.profiles.find(p => p.userId === currentUser.id);
-  
-  const currentGrade = getCurrentGrade(currentUser.id, data);
-  const progress = calculateProgress(currentUser.id, currentGrade, data);
-  const gradeReq = gradeRequirements.find(g => g.grade === currentGrade);
+  const { currentUser, sections, skills } = useContext(AppContext);
+  const [profile, setProfile] = useState(null);
+  const [progress, setProgress] = useState(null);
+  const [submissions, setSubmissions] = useState([]);
+  const [completions, setCompletions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [currentUser]);
+
+  const loadDashboardData = async () => {
+    setLoading(true);
+    try {
+      const [profileData, progressData, submissionsData] = await Promise.all([
+        api.getProfile(currentUser.id).catch(() => null),
+        api.getGradeProgress(currentUser.id),
+        currentUser.role !== 'member' 
+          ? api.getSubmissions() 
+          : Promise.resolve([])
+      ]);
+      
+      setProfile(profileData);
+      setProgress(progressData);
+      setSubmissions(submissionsData);
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading dashboard...</div>;
+  }
+
+  if (!progress) {
+    return <div className="text-center py-8">Failed to load progress data</div>;
+  }
+
+  const gradeReq = progress.pointsRequired;
+  const currentGrade = progress.currentGrade;
 
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
-          Welcome back, {currentUser.username}! 🐾
+          Welcome back, {currentUser.username}!
         </h2>
         {profile && (
-          <p className="text-gray-600">Training {profile.dogName}</p>
+          <p className="text-gray-600">Training {profile.dog_name}</p>
         )}
       </div>
 
@@ -326,7 +467,7 @@ function Dashboard() {
             <span className="text-sm opacity-90">Points Progress</span>
             <Star className="w-6 h-6" />
           </div>
-          <p className="text-4xl font-bold">{progress.totalPoints} / {gradeReq?.points || 0}</p>
+          <p className="text-4xl font-bold">{progress.totalPoints} / {gradeReq}</p>
         </div>
 
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow p-6">
@@ -341,8 +482,8 @@ function Dashboard() {
       <div className="bg-white rounded-lg shadow p-6">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Section Progress</h3>
         <div className="space-y-4">
-          {data.sections.filter(s => s.active).map(section => {
-            const sectionPoints = progress.pointsBySection[section.id] || 0;
+          {sections.filter(s => s.active).map(section => {
+            const sectionPoints = progress.sectionPoints[section.id] || 0;
             const hasSkill = progress.sectionsWithSkills.includes(section.id);
             return (
               <div key={section.id}>
@@ -366,7 +507,7 @@ function Dashboard() {
         {progress.canRequestCertificate && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <p className="text-green-800 font-medium">
-              🎉 Congratulations! You've completed Grade {currentGrade}!
+              Congratulations! You've completed Grade {currentGrade}!
             </p>
             <p className="text-green-700 text-sm mt-1">
               Request your certificate from the Certificates page.
@@ -375,31 +516,31 @@ function Dashboard() {
         )}
       </div>
 
-      {currentUser.role !== 'member' && (
+      {currentUser.role !== 'member' && submissions.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6">
           <h3 className="text-xl font-bold text-gray-800 mb-4">Trainer Quick Stats</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
               <p className="text-3xl font-bold text-blue-600">
-                {data.submissions.filter(s => s.status === 'requested' || s.status === 'submitted').length}
+                {submissions.filter(s => s.status === 'requested' || s.status === 'submitted').length}
               </p>
               <p className="text-sm text-gray-600">Pending</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-green-600">
-                {data.completions.length}
+                {submissions.filter(s => s.status === 'approved').length}
               </p>
               <p className="text-sm text-gray-600">Approved</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-purple-600">
-                {data.users.filter(u => u.role === 'member').length}
+                {sections.length}
               </p>
-              <p className="text-sm text-gray-600">Members</p>
+              <p className="text-sm text-gray-600">Sections</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-bold text-orange-600">
-                {data.skills.filter(s => s.active).length}
+                {skills.filter(s => s.active).length}
               </p>
               <p className="text-sm text-gray-600">Active Skills</p>
             </div>
@@ -412,7 +553,7 @@ function Dashboard() {
 
 // ============= SECTIONS VIEW =============
 function SectionsView() {
-  const { data } = useContext(AppContext);
+  const { sections } = useContext(AppContext);
   const [selectedSection, setSelectedSection] = useState(null);
 
   return (
@@ -421,20 +562,16 @@ function SectionsView() {
       
       {!selectedSection ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {data.sections.filter(s => s.active).sort((a, b) => a.order - b.order).map(section => {
-            const skillCount = data.skills.filter(sk => sk.sectionId === section.id && sk.active).length;
-            return (
-              <button
-                key={section.id}
-                onClick={() => setSelectedSection(section)}
-                className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition text-left"
-              >
-                <h3 className="text-xl font-bold text-gray-800 mb-2">{section.name}</h3>
-                <p className="text-gray-600 mb-4">{section.description}</p>
-                <p className="text-sm text-blue-600">{skillCount} skills available</p>
-              </button>
-            );
-          })}
+          {sections.filter(s => s.active).sort((a, b) => a.display_order - b.display_order).map(section => (
+            <button
+              key={section.id}
+              onClick={() => setSelectedSection(section)}
+              className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition text-left"
+            >
+              <h3 className="text-xl font-bold text-gray-800 mb-2">{section.name}</h3>
+              <p className="text-gray-600 mb-4">{section.description}</p>
+            </button>
+          ))}
         </div>
       ) : (
         <SectionDetail section={selectedSection} onBack={() => setSelectedSection(null)} />
@@ -444,24 +581,54 @@ function SectionsView() {
 }
 
 function SectionDetail({ section, onBack }) {
-  const { data, updateData, currentUser } = useContext(AppContext);
+  const { currentUser, skills } = useContext(AppContext);
   const [selectedSkill, setSelectedSkill] = useState(null);
-  
-  const skills = data.skills.filter(sk => sk.sectionId === section.id && sk.active)
-    .sort((a, b) => a.order - b.order);
+  const [sectionSkills, setSectionSkills] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [completions, setCompletions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSectionData();
+  }, [section]);
+
+  const loadSectionData = async () => {
+    setLoading(true);
+    try {
+      const [skillsData, submissionsData, progressData] = await Promise.all([
+        api.getSkills(section.id),
+        api.getSubmissions(currentUser.id),
+        api.getGradeProgress(currentUser.id)
+      ]);
+      
+      setSectionSkills(skillsData);
+      setSubmissions(submissionsData);
+      
+      // Extract completions from progress data
+      const completionSkills = progressData.availableCompletions?.map(c => c.skill_id) || [];
+      setCompletions(completionSkills);
+    } catch (error) {
+      console.error('Failed to load section data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getSkillStatus = (skillId) => {
-    const completion = data.completions.find(c => c.userId === currentUser.id && c.skillId === skillId);
-    if (completion) return 'completed';
+    if (completions.includes(skillId)) return 'completed';
     
-    const submission = data.submissions.find(s => 
-      s.userId === currentUser.id && s.skillId === skillId && 
+    const submission = submissions.find(s => 
+      s.skill_id === skillId && 
       (s.status === 'requested' || s.status === 'submitted')
     );
     if (submission) return submission.status;
     
     return 'available';
   };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading skills...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -480,12 +647,12 @@ function SectionDetail({ section, onBack }) {
 
       <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
         <p className="text-sm text-yellow-800">
-          ⚠️ Unless stated otherwise, food/toys only as a reward, not as a lure or encouragement.
+          Unless stated otherwise, food/toys only as a reward, not as a lure or encouragement.
         </p>
       </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {skills.map(skill => {
+        {sectionSkills.map(skill => {
           const status = getSkillStatus(skill.id);
           const statusColors = {
             completed: 'border-green-500 bg-green-50',
@@ -524,7 +691,10 @@ function SectionDetail({ section, onBack }) {
       {selectedSkill && (
         <SkillSubmissionModal
           skill={selectedSkill}
-          onClose={() => setSelectedSkill(null)}
+          onClose={() => {
+            setSelectedSkill(null);
+            loadSectionData(); // Reload to update status
+          }}
         />
       )}
     </div>
@@ -532,28 +702,31 @@ function SectionDetail({ section, onBack }) {
 }
 
 function SkillSubmissionModal({ skill, onClose }) {
-  const { data, updateData, currentUser } = useContext(AppContext);
+  const { currentUser } = useContext(AppContext);
   const [mode, setMode] = useState('class_request');
   const [notes, setNotes] = useState('');
-  const [videoFile, setVideoFile] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = () => {
-    const newSubmission = {
-      id: Date.now(),
-      userId: currentUser.id,
-      skillId: skill.id,
-      mode,
-      videoUrl: mode === 'home_video' ? videoFile : null,
-      memberNotes: notes,
-      status: mode === 'class_request' ? 'requested' : 'submitted',
-      trainerNotes: '',
-      createdAt: new Date().toISOString(),
-      decidedBy: null,
-      decidedAt: null
-    };
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    setError('');
     
-    updateData('submissions', [...data.submissions, newSubmission]);
-    onClose();
+    try {
+      await api.createSubmission({
+        user_id: currentUser.id,
+        skill_id: skill.id,
+        mode,
+        video_url: mode === 'home_video' ? videoUrl : null,
+        member_notes: notes
+      });
+      onClose();
+    } catch (err) {
+      setError(err.message || 'Failed to submit');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -593,8 +766,8 @@ function SkillSubmissionModal({ skill, onClose }) {
               </label>
               <input
                 type="text"
-                value={videoFile}
-                onChange={(e) => setVideoFile(e.target.value)}
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
                 className="w-full px-3 py-2 border rounded-lg"
                 placeholder="YouTube link or description"
               />
@@ -611,15 +784,19 @@ function SkillSubmissionModal({ skill, onClose }) {
             />
           </div>
 
+          {error && <p className="text-red-600 text-sm">{error}</p>}
+
           <div className="flex space-x-3">
             <button
               onClick={handleSubmit}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+              disabled={submitting}
+              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
             >
-              Submit
+              {submitting ? 'Submitting...' : 'Submit'}
             </button>
             <button
               onClick={onClose}
+              disabled={submitting}
               className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
             >
               Cancel
@@ -633,53 +810,52 @@ function SkillSubmissionModal({ skill, onClose }) {
 
 // ============= TRAINER INBOX =============
 function TrainerInbox() {
-  const { data, updateData, currentUser } = useContext(AppContext);
+  const { currentUser } = useContext(AppContext);
   const [filter, setFilter] = useState('all');
-  
-  const submissions = data.submissions
-    .filter(s => {
-      if (filter === 'pending') return s.status === 'requested' || s.status === 'submitted';
-      if (filter === 'approved') return s.status === 'approved';
-      if (filter === 'rejected') return s.status === 'rejected';
-      return true;
-    })
-    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleDecision = (submissionId, decision, trainerNotes = '') => {
-    const submission = data.submissions.find(s => s.id === submissionId);
-    if (!submission) return;
+  useEffect(() => {
+    loadSubmissions();
+  }, [filter]);
 
-    const updatedSubmissions = data.submissions.map(s =>
-      s.id === submissionId
-        ? {
-            ...s,
-            status: decision,
-            trainerNotes,
-            decidedBy: currentUser.id,
-            decidedAt: new Date().toISOString()
-          }
-        : s
-    );
-
-    updateData('submissions', updatedSubmissions);
-
-    if (decision === 'approved') {
-      const existingCompletion = data.completions.find(
-        c => c.userId === submission.userId && c.skillId === submission.skillId
-      );
-
-      if (!existingCompletion) {
-        const newCompletion = {
-          id: Date.now(),
-          userId: submission.userId,
-          skillId: submission.skillId,
-          approvedBy: currentUser.id,
-          approvedAt: new Date().toISOString()
-        };
-        updateData('completions', [...data.completions, newCompletion]);
+  const loadSubmissions = async () => {
+    setLoading(true);
+    try {
+      const statusFilter = filter === 'all' ? null : filter === 'pending' ? null : filter;
+      const data = await api.getSubmissions(null, statusFilter);
+      
+      let filtered = data;
+      if (filter === 'pending') {
+        filtered = data.filter(s => s.status === 'requested' || s.status === 'submitted');
       }
+      
+      setSubmissions(filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
+    } catch (error) {
+      console.error('Failed to load submissions:', error);
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleDecision = async (submissionId, decision, trainerNotes = '') => {
+    try {
+      await api.updateSubmission(submissionId, {
+        status: decision,
+        trainer_notes: trainerNotes,
+        trainer_id: currentUser.id
+      });
+      
+      loadSubmissions(); // Reload after update
+    } catch (error) {
+      console.error('Failed to update submission:', error);
+      alert('Failed to update submission: ' + error.message);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading submissions...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -708,31 +884,20 @@ function TrainerInbox() {
             No submissions found
           </div>
         ) : (
-          submissions.map(submission => {
-            const user = data.users.find(u => u.id === submission.userId);
-            const profile = data.profiles.find(p => p.userId === submission.userId);
-            const skill = data.skills.find(sk => sk.id === submission.skillId);
-            const section = data.sections.find(sec => sec.id === skill?.sectionId);
-
-            return (
-              <SubmissionCard
-                key={submission.id}
-                submission={submission}
-                user={user}
-                profile={profile}
-                skill={skill}
-                section={section}
-                onDecision={handleDecision}
-              />
-            );
-          })
+          submissions.map(submission => (
+            <SubmissionCard
+              key={submission.id}
+              submission={submission}
+              onDecision={handleDecision}
+            />
+          ))
         )}
       </div>
     </div>
   );
 }
 
-function SubmissionCard({ submission, user, profile, skill, section, onDecision }) {
+function SubmissionCard({ submission, onDecision }) {
   const [notes, setNotes] = useState('');
   const [showDecision, setShowDecision] = useState(false);
 
@@ -748,11 +913,11 @@ function SubmissionCard({ submission, user, profile, skill, section, onDecision 
       <div className="flex justify-between items-start mb-4">
         <div>
           <h3 className="text-lg font-bold text-gray-800">
-            {profile?.dogName || user?.username} - {skill?.title}
+            {submission.member_name} - {submission.skill_title}
           </h3>
-          <p className="text-sm text-gray-600">{section?.name} • {skill?.points} points</p>
+          <p className="text-sm text-gray-600">{submission.section_name} • {submission.skill_points} points</p>
           <p className="text-xs text-gray-500 mt-1">
-            {new Date(submission.createdAt).toLocaleDateString()}
+            {new Date(submission.created_at).toLocaleDateString()}
           </p>
         </div>
         <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
@@ -771,24 +936,24 @@ function SubmissionCard({ submission, user, profile, skill, section, onDecision 
           <p className="text-sm text-gray-600 capitalize">{submission.mode.replace('_', ' ')}</p>
         </div>
 
-        {submission.videoUrl && (
+        {submission.video_url && (
           <div>
             <p className="text-sm font-medium text-gray-700">Video:</p>
-            <p className="text-sm text-blue-600">{submission.videoUrl}</p>
+            <p className="text-sm text-blue-600">{submission.video_url}</p>
           </div>
         )}
 
-        {submission.memberNotes && (
+        {submission.member_notes && (
           <div>
             <p className="text-sm font-medium text-gray-700">Member Notes:</p>
-            <p className="text-sm text-gray-600">{submission.memberNotes}</p>
+            <p className="text-sm text-gray-600">{submission.member_notes}</p>
           </div>
         )}
 
-        {submission.trainerNotes && (
+        {submission.trainer_notes && (
           <div>
             <p className="text-sm font-medium text-gray-700">Trainer Notes:</p>
-            <p className="text-sm text-gray-600">{submission.trainerNotes}</p>
+            <p className="text-sm text-gray-600">{submission.trainer_notes}</p>
           </div>
         )}
 
@@ -840,48 +1005,71 @@ function SubmissionCard({ submission, user, profile, skill, section, onDecision 
 
 // ============= CERTIFICATES =============
 function CertificatesView() {
-  const { data, updateData, currentUser } = useContext(AppContext);
-  const currentGrade = getCurrentGrade(currentUser.id, data);
-  const progress = calculateProgress(currentUser.id, currentGrade, data);
-  
-  const userCertificates = data.certificates.filter(c => c.userId === currentUser.id);
-  
-  const handleRequestCertificate = () => {
-    if (!progress.canRequestCertificate) return;
-    
-    const newCert = {
-      id: Date.now(),
-      userId: currentUser.id,
-      grade: currentGrade,
-      status: 'pending',
-      requestedAt: new Date().toISOString(),
-      approvedBy: null,
-      approvedAt: null,
-      certificateUrl: null,
-      publicCode: Math.random().toString(36).substring(2, 10).toUpperCase()
-    };
-    
-    updateData('certificates', [...data.certificates, newCert]);
-    
-    // Mark grade as achieved
-    const newGrade = {
-      id: Date.now(),
-      userId: currentUser.id,
-      grade: currentGrade,
-      achievedAt: new Date().toISOString(),
-      completionIds: progress.currentGradeCompletions.map(c => c.id)
-    };
-    updateData('grades', [...data.grades, newGrade]);
+  const { currentUser } = useContext(AppContext);
+  const [progress, setProgress] = useState(null);
+  const [certificates, setCertificates] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadCertificatesData();
+  }, [currentUser]);
+
+  const loadCertificatesData = async () => {
+    setLoading(true);
+    try {
+      const [progressData, certsData, profileData] = await Promise.all([
+        api.getGradeProgress(currentUser.id),
+        api.getCertificates(currentUser.id),
+        api.getProfile(currentUser.id).catch(() => null)
+      ]);
+      
+      setProgress(progressData);
+      setCertificates(certsData);
+      setProfile(profileData);
+    } catch (error) {
+      console.error('Failed to load certificates data:', error);
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleRequestCertificate = async () => {
+    if (!progress || !progress.canRequestCertificate) return;
+    
+    try {
+      // First achieve the grade
+      await api.achieveGrade({
+        user_id: currentUser.id,
+        grade_number: progress.currentGrade,
+        completion_ids: progress.completionIds
+      });
+      
+      // Then request certificate
+      await api.requestCertificate({
+        user_id: currentUser.id,
+        grade_id: progress.currentGrade // This should actually be the grade record ID, but we'll use grade number for now
+      });
+      
+      loadCertificatesData(); // Reload
+    } catch (error) {
+      console.error('Failed to request certificate:', error);
+      alert('Failed to request certificate: ' + error.message);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading certificates...</div>;
+  }
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Certificates</h2>
 
-      {progress.canRequestCertificate && (
+      {progress && progress.canRequestCertificate && (
         <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
           <h3 className="text-lg font-bold text-green-800 mb-2">
-            🎉 Ready for Grade {currentGrade} Certificate!
+            Ready for Grade {progress.currentGrade} Certificate!
           </h3>
           <p className="text-green-700 mb-4">
             You've completed all requirements. Request your certificate now!
@@ -896,14 +1084,11 @@ function CertificatesView() {
       )}
 
       <div className="grid md:grid-cols-2 gap-6">
-        {userCertificates.map(cert => {
-          const profile = data.profiles.find(p => p.userId === currentUser.id);
-          return (
-            <CertificateCard key={cert.id} certificate={cert} profile={profile} data={data} />
-          );
-        })}
+        {certificates.map(cert => (
+          <CertificateCard key={cert.id} certificate={cert} profile={profile} />
+        ))}
         
-        {userCertificates.length === 0 && !progress.canRequestCertificate && (
+        {certificates.length === 0 && (!progress || !progress.canRequestCertificate) && (
           <div className="col-span-2 bg-white rounded-lg shadow p-8 text-center text-gray-500">
             No certificates yet. Keep training to earn your first grade!
           </div>
@@ -911,13 +1096,13 @@ function CertificatesView() {
       </div>
 
       {currentUser.role !== 'member' && (
-        <TrainerCertificateApprovals />
+        <TrainerCertificateApprovals onUpdate={loadCertificatesData} />
       )}
     </div>
   );
 }
 
-function CertificateCard({ certificate, profile, data }) {
+function CertificateCard({ certificate, profile }) {
   const statusColors = {
     pending: 'border-yellow-300 bg-yellow-50',
     approved: 'border-green-300 bg-green-50'
@@ -927,8 +1112,8 @@ function CertificateCard({ certificate, profile, data }) {
     <div className={`border-2 rounded-lg p-6 ${statusColors[certificate.status]}`}>
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-xl font-bold text-gray-800">Grade {certificate.grade}</h3>
-          <p className="text-sm text-gray-600">{profile?.dogName}</p>
+          <h3 className="text-xl font-bold text-gray-800">Grade {certificate.grade_number}</h3>
+          <p className="text-sm text-gray-600">{profile?.dog_name || certificate.dog_name}</p>
         </div>
         <Award className={`w-8 h-8 ${certificate.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`} />
       </div>
@@ -937,14 +1122,14 @@ function CertificateCard({ certificate, profile, data }) {
         <p className="text-gray-600">
           Status: <span className="font-medium capitalize">{certificate.status}</span>
         </p>
-        {certificate.approvedAt && (
+        {certificate.approved_at && (
           <p className="text-gray-600">
-            Approved: {new Date(certificate.approvedAt).toLocaleDateString()}
+            Approved: {new Date(certificate.approved_at).toLocaleDateString()}
           </p>
         )}
-        {certificate.publicCode && (
+        {certificate.public_code && (
           <p className="text-gray-600">
-            Certificate ID: <span className="font-mono font-bold">{certificate.publicCode}</span>
+            Certificate ID: <span className="font-mono font-bold">{certificate.public_code}</span>
           </p>
         )}
       </div>
@@ -958,52 +1143,64 @@ function CertificateCard({ certificate, profile, data }) {
   );
 }
 
-function TrainerCertificateApprovals() {
-  const { data, updateData, currentUser } = useContext(AppContext);
-  
-  const pendingCerts = data.certificates.filter(c => c.status === 'pending');
+function TrainerCertificateApprovals({ onUpdate }) {
+  const { currentUser } = useContext(AppContext);
+  const [pendingCerts, setPendingCerts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const handleApprove = (certId) => {
-    const updatedCerts = data.certificates.map(c =>
-      c.id === certId
-        ? {
-            ...c,
-            status: 'approved',
-            approvedBy: currentUser.id,
-            approvedAt: new Date().toISOString()
-          }
-        : c
-    );
-    updateData('certificates', updatedCerts);
+  useEffect(() => {
+    loadPendingCertificates();
+  }, []);
+
+  const loadPendingCertificates = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getCertificates(null, 'pending');
+      setPendingCerts(data);
+    } catch (error) {
+      console.error('Failed to load pending certificates:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (pendingCerts.length === 0) return null;
+  const handleApprove = async (certId) => {
+    try {
+      await api.approveCertificate({
+        certificate_id: certId,
+        trainer_id: currentUser.id
+      });
+      
+      loadPendingCertificates();
+      onUpdate();
+    } catch (error) {
+      console.error('Failed to approve certificate:', error);
+      alert('Failed to approve certificate: ' + error.message);
+    }
+  };
+
+  if (loading || pendingCerts.length === 0) return null;
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-xl font-bold text-gray-800 mb-4">Pending Certificate Approvals</h3>
       <div className="space-y-4">
-        {pendingCerts.map(cert => {
-          const user = data.users.find(u => u.id === cert.userId);
-          const profile = data.profiles.find(p => p.userId === cert.userId);
-          
-          return (
-            <div key={cert.id} className="border rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <p className="font-bold text-gray-800">
-                  {profile?.dogName} - Grade {cert.grade}
-                </p>
-                <p className="text-sm text-gray-600">{user?.username}</p>
-              </div>
-              <button
-                onClick={() => handleApprove(cert.id)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-              >
-                Approve
-              </button>
+        {pendingCerts.map(cert => (
+          <div key={cert.id} className="border rounded-lg p-4 flex justify-between items-center">
+            <div>
+              <p className="font-bold text-gray-800">
+                {cert.dog_name} - Grade {cert.grade_number}
+              </p>
+              <p className="text-sm text-gray-600">{cert.member_name}</p>
             </div>
-          );
-        })}
+            <button
+              onClick={() => handleApprove(cert.id)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+            >
+              Approve
+            </button>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -1011,27 +1208,59 @@ function TrainerCertificateApprovals() {
 
 // ============= PROFILE =============
 function ProfileView() {
-  const { data, updateData, currentUser } = useContext(AppContext);
-  const [profile, setProfile] = useState(
-    data.profiles.find(p => p.userId === currentUser.id) || {
-      userId: currentUser.id,
-      dogName: '',
-      owners: '',
-      dogPhoto: null,
-      notes: ''
-    }
-  );
+  const { currentUser } = useContext(AppContext);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    dog_name: '',
+    owners: '',
+    notes: ''
+  });
 
-  const handleSave = () => {
-    const existingProfile = data.profiles.find(p => p.userId === currentUser.id);
-    if (existingProfile) {
-      updateData('profiles', data.profiles.map(p =>
-        p.userId === currentUser.id ? { ...profile, id: p.id } : p
-      ));
-    } else {
-      updateData('profiles', [...data.profiles, { ...profile, id: Date.now() }]);
+  useEffect(() => {
+    loadProfile();
+  }, [currentUser]);
+
+  const loadProfile = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getProfile(currentUser.id);
+      setProfile(data);
+      setFormData({
+        dog_name: data.dog_name || '',
+        owners: data.owners || '',
+        notes: data.notes || ''
+      });
+    } catch (error) {
+      console.error('Failed to load profile:', error);
+      // If profile doesn't exist, use empty form
+      setProfile(null);
+    } finally {
+      setLoading(false);
     }
   };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      await api.saveProfile({
+        user_id: currentUser.id,
+        ...formData
+      });
+      
+      loadProfile(); // Reload
+    } catch (error) {
+      console.error('Failed to save profile:', error);
+      alert('Failed to save profile: ' + error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading profile...</div>;
+  }
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -1042,8 +1271,8 @@ function ProfileView() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Dog Name</label>
           <input
             type="text"
-            value={profile.dogName}
-            onChange={(e) => setProfile({ ...profile, dogName: e.target.value })}
+            value={formData.dog_name}
+            onChange={(e) => setFormData({ ...formData, dog_name: e.target.value })}
             className="w-full px-4 py-2 border rounded-lg"
             placeholder="Max"
           />
@@ -1053,8 +1282,8 @@ function ProfileView() {
           <label className="block text-sm font-medium text-gray-700 mb-1">Owner(s)</label>
           <input
             type="text"
-            value={profile.owners}
-            onChange={(e) => setProfile({ ...profile, owners: e.target.value })}
+            value={formData.owners}
+            onChange={(e) => setFormData({ ...formData, owners: e.target.value })}
             className="w-full px-4 py-2 border rounded-lg"
             placeholder="Sarah Johnson"
           />
@@ -1063,8 +1292,8 @@ function ProfileView() {
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
           <textarea
-            value={profile.notes}
-            onChange={(e) => setProfile({ ...profile, notes: e.target.value })}
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
             className="w-full px-4 py-2 border rounded-lg h-24"
             placeholder="Any important information about your dog..."
           />
@@ -1072,9 +1301,10 @@ function ProfileView() {
 
         <button
           onClick={handleSave}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+          disabled={saving}
+          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
         >
-          Save Profile
+          {saving ? 'Saving...' : 'Save Profile'}
         </button>
       </div>
     </div>
@@ -1083,12 +1313,18 @@ function ProfileView() {
 
 // ============= ADMIN PANEL =============
 function AdminPanel() {
-  const { data, updateData } = useContext(AppContext);
   const [activeTab, setActiveTab] = useState('skills');
 
   return (
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
+
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <p className="text-sm text-yellow-800">
+          Admin panel features (skill/section/user management) will be connected to API in future update.
+          For now, manage data directly in Azure SQL Database using Query Editor.
+        </p>
+      </div>
 
       <div className="flex space-x-2 border-b">
         {['skills', 'sections', 'users'].map(tab => (
@@ -1106,208 +1342,12 @@ function AdminPanel() {
         ))}
       </div>
 
-      {activeTab === 'skills' && <SkillsManager />}
-      {activeTab === 'sections' && <SectionsManager />}
-      {activeTab === 'users' && <UsersManager />}
-    </div>
-  );
-}
-
-function SkillsManager() {
-  const { data, updateData } = useContext(AppContext);
-  const [editingSkill, setEditingSkill] = useState(null);
-
-  const handleSave = (skill) => {
-    if (skill.id) {
-      updateData('skills', data.skills.map(s => s.id === skill.id ? skill : s));
-    } else {
-      updateData('skills', [...data.skills, { ...skill, id: Date.now() }]);
-    }
-    setEditingSkill(null);
-  };
-
-  return (
-    <div className="space-y-4">
-      <button
-        onClick={() => setEditingSkill({ title: '', description: '', sectionId: 1, difficulty: 1, points: 2, active: true, order: 1 })}
-        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition"
-      >
-        + Add Skill
-      </button>
-
-      {editingSkill && (
-        <div className="bg-white border-2 border-blue-300 rounded-lg p-6 space-y-4">
-          <h3 className="font-bold text-lg">Edit Skill</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <input
-              type="text"
-              value={editingSkill.title}
-              onChange={(e) => setEditingSkill({ ...editingSkill, title: e.target.value })}
-              placeholder="Skill title"
-              className="px-3 py-2 border rounded-lg"
-            />
-            <select
-              value={editingSkill.sectionId}
-              onChange={(e) => setEditingSkill({ ...editingSkill, sectionId: parseInt(e.target.value) })}
-              className="px-3 py-2 border rounded-lg"
-            >
-              {data.sections.map(s => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <input
-              type="number"
-              value={editingSkill.difficulty}
-              onChange={(e) => setEditingSkill({ ...editingSkill, difficulty: parseInt(e.target.value) })}
-              placeholder="Difficulty (1-5)"
-              min="1"
-              max="5"
-              className="px-3 py-2 border rounded-lg"
-            />
-            <input
-              type="number"
-              value={editingSkill.points}
-              onChange={(e) => setEditingSkill({ ...editingSkill, points: parseInt(e.target.value) })}
-              placeholder="Points"
-              className="px-3 py-2 border rounded-lg"
-            />
-            <textarea
-              value={editingSkill.description}
-              onChange={(e) => setEditingSkill({ ...editingSkill, description: e.target.value })}
-              placeholder="Description"
-              className="col-span-2 px-3 py-2 border rounded-lg"
-            />
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => handleSave(editingSkill)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => setEditingSkill(null)}
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {data.skills.map(skill => {
-          const section = data.sections.find(s => s.id === skill.sectionId);
-          return (
-            <div key={skill.id} className="bg-white border rounded-lg p-4 flex justify-between items-center">
-              <div>
-                <p className="font-bold">{skill.title}</p>
-                <p className="text-sm text-gray-600">{section?.name} • {skill.points}pts • {'⭐'.repeat(skill.difficulty)}</p>
-              </div>
-              <button
-                onClick={() => setEditingSkill(skill)}
-                className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"
-              >
-                Edit
-              </button>
-            </div>
-          );
-        })}
+      <div className="bg-white rounded-lg shadow p-6">
+        <p className="text-gray-600">
+          Admin CRUD operations will be implemented in a future update. 
+          Currently, use Azure Portal Query Editor to manage {activeTab}.
+        </p>
       </div>
     </div>
   );
-}
-
-function SectionsManager() {
-  const { data } = useContext(AppContext);
-  
-  return (
-    <div className="space-y-4">
-      {data.sections.map(section => (
-        <div key={section.id} className="bg-white border rounded-lg p-4">
-          <h3 className="font-bold text-lg">{section.name}</h3>
-          <p className="text-gray-600">{section.description}</p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function UsersManager() {
-  const { data, updateData } = useContext(AppContext);
-
-  const toggleActive = (userId) => {
-    updateData('users', data.users.map(u =>
-      u.id === userId ? { ...u, active: !u.active } : u
-    ));
-  };
-
-  return (
-    <div className="space-y-2">
-      {data.users.map(user => (
-        <div key={user.id} className="bg-white border rounded-lg p-4 flex justify-between items-center">
-          <div>
-            <p className="font-bold">{user.username}</p>
-            <p className="text-sm text-gray-600">{user.email} • {user.role}</p>
-          </div>
-          <button
-            onClick={() => toggleActive(user.id)}
-            className={`px-4 py-2 rounded-lg ${
-              user.active
-                ? 'bg-green-100 text-green-700 hover:bg-green-200'
-                : 'bg-red-100 text-red-700 hover:bg-red-200'
-            }`}
-          >
-            {user.active ? 'Active' : 'Inactive'}
-          </button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// ============= HELPER FUNCTIONS =============
-function getCurrentGrade(userId, data) {
-  const userGrades = data.grades.filter(g => g.userId === userId).sort((a, b) => b.grade - a.grade);
-  return userGrades.length > 0 ? userGrades[0].grade + 1 : 1;
-}
-
-function calculateProgress(userId, currentGrade, data) {
-  const lastGrade = data.grades.filter(g => g.userId === userId).find(g => g.grade === currentGrade - 1);
-  const usedCompletionIds = data.grades
-    .filter(g => g.userId === userId && g.grade < currentGrade)
-    .flatMap(g => g.completionIds || []);
-
-  const availableCompletions = data.completions.filter(c =>
-    c.userId === userId && !usedCompletionIds.includes(c.id)
-  );
-
-  const currentGradeCompletions = availableCompletions;
-  
-  let totalPoints = 0;
-  const pointsBySection = {};
-  const sectionsWithSkills = new Set();
-
-  currentGradeCompletions.forEach(completion => {
-    const skill = data.skills.find(s => s.id === completion.skillId);
-    if (skill) {
-      totalPoints += skill.points;
-      pointsBySection[skill.sectionId] = (pointsBySection[skill.sectionId] || 0) + skill.points;
-      sectionsWithSkills.add(skill.sectionId);
-    }
-  });
-
-  const gradeReq = gradeRequirements.find(g => g.grade === currentGrade);
-  const canRequestCertificate = 
-    totalPoints >= (gradeReq?.points || 0) && 
-    sectionsWithSkills.size === 6 &&
-    !data.certificates.some(c => c.userId === userId && c.grade === currentGrade);
-
-  return {
-    totalPoints,
-    pointsBySection,
-    sectionsWithSkills: Array.from(sectionsWithSkills),
-    canRequestCertificate,
-    currentGradeCompletions
-  };
 }
