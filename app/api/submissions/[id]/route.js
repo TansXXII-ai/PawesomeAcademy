@@ -1,9 +1,19 @@
+// /app/api/submissions/[id]/route.js - UPDATED VERSION
 import { NextResponse } from 'next/server';
 import { query, sql } from '@/lib/db';
+import { cookies } from 'next/headers';
 
 // PATCH - approve or reject submission
 export async function PATCH(request, { params }) {
   try {
+    const cookieStore = cookies();
+    const userCookie = cookieStore.get('user');
+    
+    if (!userCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentUser = JSON.parse(userCookie.value);
     const submissionId = params.id;
     const { status, trainer_notes, trainer_id } = await request.json();
     
@@ -14,9 +24,17 @@ export async function PATCH(request, { params }) {
       );
     }
     
-    // Get submission details
+    // Get submission details with class information
     const submission = await query(
-      'SELECT user_id, skill_id FROM Submissions WHERE id = @param0',
+      `SELECT 
+        s.user_id, 
+        s.skill_id,
+        p.class_id,
+        c.trainer_id as class_trainer_id
+      FROM Submissions s
+      LEFT JOIN Profiles p ON s.user_id = p.user_id
+      LEFT JOIN Classes c ON p.class_id = c.id
+      WHERE s.id = @param0`,
       [parseInt(submissionId)]
     );
     
@@ -27,7 +45,26 @@ export async function PATCH(request, { params }) {
       );
     }
     
-    const { user_id, skill_id } = submission.recordset[0];
+    const { user_id, skill_id, class_id, class_trainer_id } = submission.recordset[0];
+    
+    // AUTHORIZATION CHECK: Verify trainer can approve this submission
+    if (currentUser.role === 'trainer') {
+      // Trainers can only approve submissions from students in their classes
+      if (!class_id) {
+        return NextResponse.json(
+          { error: 'Student not assigned to any class' },
+          { status: 403 }
+        );
+      }
+      
+      if (class_trainer_id !== currentUser.id) {
+        return NextResponse.json(
+          { error: 'You can only approve submissions from students in your classes' },
+          { status: 403 }
+        );
+      }
+    }
+    // Admins can approve any submission (no restriction)
     
     // Start transaction
     const pool = await sql.connect();
@@ -40,11 +77,14 @@ export async function PATCH(request, { params }) {
       await transaction.request()
         .input('status', sql.NVarChar, status)
         .input('notes', sql.NVarChar, trainer_notes || '')
-        .input('trainer', sql.Int, trainer_id)
+        .input('trainer', sql.Int, trainer_id || currentUser.id)
         .input('id', sql.Int, parseInt(submissionId))
         .query(`
           UPDATE Submissions 
-          SET status = @status, trainer_notes = @notes, decided_by = @trainer, decided_at = GETDATE()
+          SET status = @status, 
+              trainer_notes = @notes, 
+              decided_by = @trainer, 
+              decided_at = GETDATE()
           WHERE id = @id
         `);
       
@@ -60,7 +100,7 @@ export async function PATCH(request, { params }) {
           await transaction.request()
             .input('userId', sql.Int, user_id)
             .input('skillId', sql.Int, skill_id)
-            .input('trainerId', sql.Int, trainer_id)
+            .input('trainerId', sql.Int, trainer_id || currentUser.id)
             .query(`
               INSERT INTO Completions (user_id, skill_id, approved_by)
               VALUES (@userId, @skillId, @trainerId)
