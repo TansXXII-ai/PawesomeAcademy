@@ -93,6 +93,26 @@ const api = {
       method: 'PATCH',
       body: JSON.stringify(data),
     }),
+
+  // NEW: Class System APIs
+  getClasses: (trainerId = null, includeMembers = false) => {
+    const params = new URLSearchParams();
+    if (trainerId) params.append('trainerId', trainerId);
+    if (includeMembers) params.append('includeMembers', 'true');
+    return fetchAPI(`/classes?${params}`);
+  },
+
+  createClass: (classData) =>
+    fetchAPI('/classes', {
+      method: 'POST',
+      body: JSON.stringify(classData),
+    }),
+
+  getMyStudents: (classId = null) => {
+    const params = new URLSearchParams();
+    if (classId) params.append('classId', classId);
+    return fetchAPI(`/classes/my-students?${params}`);
+  },
 };
 
 // ============= CONTEXT =============
@@ -187,6 +207,7 @@ export default function PawcademyApp() {
                 <>
                   {view === 'dashboard' && <Dashboard />}
                   {view === 'sections' && <SectionsView />}
+                  {view === 'myclasses' && <MyClassesView />}
                   {view === 'inbox' && <TrainerInbox />}
                   {view === 'admin' && <AdminPanel />}
                   {view === 'profile' && <ProfileView />}
@@ -319,6 +340,7 @@ function Navigation({ view, setView }) {
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: Award, roles: ['member', 'trainer', 'admin'] },
     { key: 'sections', label: 'Skills', icon: Book, roles: ['member', 'trainer', 'admin'] },
+    { key: 'myclasses', label: 'My Classes', icon: User, roles: ['trainer', 'admin'] },
     { key: 'inbox', label: `Inbox ${pendingCount > 0 ? `(${pendingCount})` : ''}`, icon: Clock, roles: ['trainer', 'admin'] },
     { key: 'certificates', label: 'Certificates', icon: FileText, roles: ['member', 'trainer', 'admin'] },
     { key: 'admin', label: 'Admin', icon: User, roles: ['admin'] },
@@ -808,6 +830,161 @@ function SkillSubmissionModal({ skill, onClose }) {
   );
 }
 
+// ============= MY CLASSES VIEW (TRAINER) =============
+function MyClassesView() {
+  const { currentUser } = useContext(AppContext);
+  const [classData, setClassData] = useState(null);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadMyClasses();
+  }, []);
+
+  const loadMyClasses = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getMyStudents();
+      setClassData(data);
+      if (data.classes && data.classes.length > 0) {
+        setSelectedClass(data.classes[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load classes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading your classes...</div>;
+  }
+
+  if (!classData || classData.classes.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow p-8 text-center">
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">My Classes</h2>
+        <p className="text-gray-600">You are not assigned to any classes yet.</p>
+        <p className="text-sm text-gray-500 mt-2">
+          Contact an administrator to be assigned to a class.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800">My Classes</h2>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="border-b flex overflow-x-auto">
+          {classData.classes.map(cls => (
+            <button
+              key={cls.id}
+              onClick={() => setSelectedClass(cls)}
+              className={`px-6 py-4 whitespace-nowrap font-medium transition ${
+                selectedClass?.id === cls.id
+                  ? 'border-b-2 border-blue-600 text-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <div className="text-left">
+                <div>{cls.name}</div>
+                <div className="text-xs opacity-75">
+                  {cls.day_of_week} {cls.time_slot} • {cls.student_count} students
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {selectedClass && (
+          <div className="p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              Class Roster - {selectedClass.name}
+            </h3>
+            
+            {selectedClass.students && selectedClass.students.length > 0 ? (
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {selectedClass.students.map(student => (
+                  <StudentCard key={student.user_id} student={student} />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                No students enrolled in this class yet.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function StudentCard({ student }) {
+  const { setView } = useContext(AppContext);
+  const progress = student.progress || {};
+  const currentGrade = progress.current_grade || 0;
+  const nextGrade = currentGrade + 1;
+  const pointsRequired = progress.points_required || 20;
+  const totalPoints = progress.total_points || 0;
+  const progressPercent = Math.min((totalPoints / pointsRequired) * 100, 100);
+
+  return (
+    <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h4 className="font-bold text-gray-800">{student.dog_name || 'No dog name'}</h4>
+          <p className="text-sm text-gray-600">{student.owners || student.username}</p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-blue-600">
+            {currentGrade > 0 ? currentGrade : '-'}
+          </div>
+          <div className="text-xs text-gray-500">Grade</div>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <div className="flex justify-between items-center mb-1">
+          <span className="text-xs text-gray-600">
+            Progress to Grade {nextGrade > 12 ? 12 : nextGrade}
+          </span>
+          <span className="text-xs font-medium text-gray-700">
+            {totalPoints} / {pointsRequired} pts
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full ${
+              progressPercent >= 100 ? 'bg-green-500' : 'bg-blue-500'
+            }`}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-center text-xs mb-3">
+        <div className="bg-white rounded p-2">
+          <div className="font-bold text-purple-600">{progress.sections_with_skills || 0}/6</div>
+          <div className="text-gray-600">Sections</div>
+        </div>
+        <div className="bg-white rounded p-2">
+          <div className="font-bold text-orange-600">{student.pending_submissions || 0}</div>
+          <div className="text-gray-600">Pending</div>
+        </div>
+      </div>
+
+      {progressPercent >= 100 && progress.sections_with_skills >= 6 && (
+        <div className="bg-green-50 border border-green-200 rounded px-2 py-1 text-center">
+          <p className="text-xs font-medium text-green-800">Ready for Certificate!</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ============= TRAINER INBOX =============
 function TrainerInbox() {
   const { currentUser } = useContext(AppContext);
@@ -1210,32 +1387,38 @@ function TrainerCertificateApprovals({ onUpdate }) {
 function ProfileView() {
   const { currentUser } = useContext(AppContext);
   const [profile, setProfile] = useState(null);
+  const [classes, setClasses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     dog_name: '',
     owners: '',
-    notes: ''
+    notes: '',
+    class_id: null
   });
 
   useEffect(() => {
-    loadProfile();
+    loadProfileData();
   }, [currentUser]);
 
-  const loadProfile = async () => {
+  const loadProfileData = async () => {
     setLoading(true);
     try {
-      const data = await api.getProfile(currentUser.id);
-      setProfile(data);
+      const [profileData, classesData] = await Promise.all([
+        api.getProfile(currentUser.id).catch(() => null),
+        api.getClasses()
+      ]);
+      
+      setProfile(profileData);
+      setClasses(classesData);
       setFormData({
-        dog_name: data.dog_name || '',
-        owners: data.owners || '',
-        notes: data.notes || ''
+        dog_name: profileData?.dog_name || '',
+        owners: profileData?.owners || '',
+        notes: profileData?.notes || '',
+        class_id: profileData?.class_id || null
       });
     } catch (error) {
-      console.error('Failed to load profile:', error);
-      // If profile doesn't exist, use empty form
-      setProfile(null);
+      console.error('Failed to load profile data:', error);
     } finally {
       setLoading(false);
     }
@@ -1249,7 +1432,7 @@ function ProfileView() {
         ...formData
       });
       
-      loadProfile(); // Reload
+      loadProfileData();
     } catch (error) {
       console.error('Failed to save profile:', error);
       alert('Failed to save profile: ' + error.message);
@@ -1290,6 +1473,28 @@ function ProfileView() {
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+          <select
+            value={formData.class_id || ''}
+            onChange={(e) => setFormData({ 
+              ...formData, 
+              class_id: e.target.value ? parseInt(e.target.value) : null 
+            })}
+            className="w-full px-4 py-2 border rounded-lg"
+          >
+            <option value="">Not assigned to a class</option>
+            {classes.map(cls => (
+              <option key={cls.id} value={cls.id}>
+                {cls.name} - {cls.day_of_week} {cls.time_slot}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            Select your regular training class
+          </p>
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
           <textarea
             value={formData.notes}
@@ -1306,6 +1511,15 @@ function ProfileView() {
         >
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
+
+        {profile && profile.class_name && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm font-medium text-blue-800">Current Class</p>
+            <p className="text-blue-700">
+              {profile.class_name} - {profile.day_of_week} {profile.time_slot}
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
