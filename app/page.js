@@ -225,7 +225,7 @@ function LoginPage({ onLogin }) {
   };
 
   return (
-   <div className="min-h-screen flex items-center justify-center bg-[#322A3B]">
+   <div className="min-h-screen flex items-center justify-center bg-[#32303b]">
       <div className="bg-white p-8 rounded-lg shadow-xl w-full max-w-md border-4 border-[#dcac6e]">
         <div className="text-center mb-8">
           <img src="/PawcademyLogo.png" alt="Logo" className="w-32 h-32 mx-auto mb-4 rounded-full" />
@@ -261,15 +261,13 @@ function LoginPage({ onLogin }) {
           
           {error && <p className="text-red-600 text-sm">{error}</p>}
           
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-          >
-            {loading ? 'Logging in...' : 'Login'}
-          </button>
-        </div>
-        
+<button
+  onClick={handleSubmit}
+  disabled={loading}
+  className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#32303b] transition disabled:opacity-50"
+>
+  {loading ? 'Logging in...' : 'Login'}
+</button>
         <div className="mt-6 pt-6 border-t text-sm text-gray-600">
           <p className="font-semibold mb-2">Database Connected</p>
           <p className="text-xs">Using Azure SQL Database for data storage</p>
