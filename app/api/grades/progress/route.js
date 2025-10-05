@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
+import { cookies } from 'next/headers';
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
 const gradeRequirements = {
   1: 20, 2: 20, 3: 20,
   4: 40, 5: 40, 6: 40,
