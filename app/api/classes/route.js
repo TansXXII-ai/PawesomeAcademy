@@ -52,8 +52,9 @@ export async function GET(request) {
       "WHEN 'Saturday' THEN 6 " +
       "WHEN 'Sunday' THEN 7 END, c.time_slot";
 
-   const result = await query(sql, params);
+    const result = await query(sql, params);
     const classes = result.recordset;
+    
     // If requested, include member count for each class
     if (includeMembers) {
       for (let cls of classes) {
@@ -61,7 +62,7 @@ export async function GET(request) {
           'SELECT COUNT(*) as count FROM Profiles WHERE class_id = @classId',
           [{ name: 'classId', type: 'Int', value: cls.id }]
         );
-        cls.member_count = memberCountResult[0]?.count || 0;
+        cls.member_count = memberCountResult.recordset[0]?.count || 0;
       }
     }
 
@@ -117,14 +118,14 @@ export async function POST(request) {
       [{ name: 'trainerId', type: 'Int', value: trainer_id }]
     );
 
-    if (trainerResult.length === 0) {
+    if (trainerResult.recordset.length === 0) {
       return NextResponse.json(
         { error: 'Trainer not found' },
         { status: 404 }
       );
     }
 
-    if (!['trainer', 'admin'].includes(trainerResult[0].role)) {
+    if (!['trainer', 'admin'].includes(trainerResult.recordset[0].role)) {
       return NextResponse.json(
         { error: 'User is not a trainer' },
         { status: 400 }
@@ -144,7 +145,7 @@ export async function POST(request) {
       ]
     );
 
-    return NextResponse.json({ success: true, class: result[0] });
+    return NextResponse.json({ success: true, class: result.recordset[0] });
   } catch (error) {
     console.error('Create class error:', error);
     return NextResponse.json(
