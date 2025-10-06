@@ -48,28 +48,29 @@ export async function GET(request) {
       "WHEN 'Sunday' THEN 7 END, c.time_slot";
 
     const classesResult = await query(classesSql, params);
-const classes = classesResult.recordset;
+    const classes = classesResult.recordset;
 
     // For each class, get the students and their progress
- for (let cls of classes) {
-  const studentsQuery = await query(
-    `SELECT 
-      u.id as user_id,
-      u.username,
-      u.email,
-      p.dog_name,
-      p.owners,
-      p.dog_photo_url,
-      (SELECT MAX(grade_number) FROM Grades WHERE user_id = u.id) as current_grade,
-      (SELECT COUNT(*) FROM Submissions 
-       WHERE user_id = u.id AND status IN ('requested', 'submitted')) as pending_submissions
-    FROM Profiles p
-    JOIN Users u ON p.user_id = u.id
-    WHERE p.class_id = @classId AND u.active = 1
-    ORDER BY p.dog_name, u.username`,
-    [{ name: 'classId', type: 'Int', value: cls.id }]
-  );
-  const studentsResult = studentsQuery.recordset;  // Now this matches
+    for (let cls of classes) {
+      const studentsQuery = await query(
+        `SELECT 
+          u.id as user_id,
+          u.username,
+          u.email,
+          p.dog_name,
+          p.owners,
+          p.dog_photo_url,
+          (SELECT MAX(grade_number) FROM Grades WHERE user_id = u.id) as current_grade,
+          (SELECT COUNT(*) FROM Submissions 
+           WHERE user_id = u.id AND status IN ('requested', 'submitted')) as pending_submissions
+        FROM Profiles p
+        JOIN Users u ON p.user_id = u.id
+        WHERE p.class_id = @classId AND u.active = 1
+        ORDER BY p.dog_name, u.username`,
+        [{ name: 'classId', type: 'Int', value: cls.id }]
+      );
+      
+      const studentsResult = studentsQuery.recordset;
 
       // Get detailed progress for each student
       for (let student of studentsResult) {
@@ -104,7 +105,7 @@ const classes = classesResult.recordset;
           { name: 'userId', type: 'Int', value: student.user_id }
         ]);
 
-        student.progress = progressResult[0] || {
+        student.progress = progressResult.recordset[0] || {
           current_grade: 0,
           total_points: 0,
           sections_with_skills: 0
