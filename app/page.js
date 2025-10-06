@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, createContext, useContext, useEffect } from 'react';
 import { Camera, Award, Book, User, LogOut, Menu, X, Check, Clock, AlertCircle, Upload, FileText, Star, ChevronRight } from 'lucide-react';
+
 // ============= API CLIENT =============
 const API_BASE = '/api';
 
@@ -93,7 +94,6 @@ const api = {
       body: JSON.stringify(data),
     }),
 
-  // NEW: Class System APIs
   getClasses: (trainerId = null, includeMembers = false) => {
     const params = new URLSearchParams();
     if (trainerId) params.append('trainerId', trainerId);
@@ -112,6 +112,15 @@ const api = {
     if (classId) params.append('classId', classId);
     return fetchAPI(`/classes/my-students?${params}`);
   },
+
+  getStudentDetails: (userId) =>
+    fetchAPI(`/students/${userId}`),
+
+  directApproveSkill: (data) =>
+    fetchAPI('/completions/direct-approve', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 
 // ============= CONTEXT =============
@@ -157,7 +166,6 @@ export default function PawcademyApp() {
     setView('login');
   };
 
-  // Load initial data when user logs in
   useEffect(() => {
     if (currentUser) {
       loadInitialData();
@@ -284,7 +292,7 @@ function LoginPage({ onLogin }) {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] text-black transition disabled:opacity-50"
+            className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-black transition disabled:opacity-50"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
@@ -292,7 +300,7 @@ function LoginPage({ onLogin }) {
         
         <div className="mt-6 pt-6 border-t text-sm text-gray-600">
           <p className="font-semibold mb-2">For Members Only</p>
-          <p className="text-xs">You will need to use your email and password provided to you by your trainer </p>
+          <p className="text-xs">You will need to use your email and password provided to you by your trainer</p>
         </div>
       </div>
     </div>
@@ -420,11 +428,14 @@ function Navigation({ view, setView }) {
 
 // ============= DASHBOARD =============
 function Dashboard() {
-  const { currentUser, sections, skills } = useContext(AppContext);
+  const { currentUser, sections, skills, setView } = useContext(AppContext);
   const [profile, setProfile] = useState(null);
   const [progress, setProgress] = useState(null);
   const [submissions, setSubmissions] = useState([]);
-  const [completions, setCompletions] = useState([]);
+  const [classData, setClassData] = useState(null);
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [studentView, setStudentView] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -434,17 +445,26 @@ function Dashboard() {
   const loadDashboardData = async () => {
     setLoading(true);
     try {
-      const [profileData, progressData, submissionsData] = await Promise.all([
-        api.getProfile(currentUser.id).catch(() => null),
-        api.getGradeProgress(currentUser.id),
-        currentUser.role !== 'member' 
-          ? api.getSubmissions() 
-          : Promise.resolve([])
-      ]);
-      
-      setProfile(profileData);
-      setProgress(progressData);
-      setSubmissions(submissionsData);
+      if (currentUser.role === 'member') {
+        const [profileData, progressData] = await Promise.all([
+          api.getProfile(currentUser.id).catch(() => null),
+          api.getGradeProgress(currentUser.id)
+        ]);
+        setProfile(profileData);
+        setProgress(progressData);
+      } else {
+        const [profileData, submissionsData, classesData] = await Promise.all([
+          api.getProfile(currentUser.id).catch(() => null),
+          api.getSubmissions(),
+          api.getMyStudents()
+        ]);
+        setProfile(profileData);
+        setSubmissions(submissionsData);
+        setClassData(classesData);
+        if (classesData.classes && classesData.classes.length > 0) {
+          setSelectedClass(classesData.classes[0]);
+        }
+      }
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
     } finally {
@@ -452,10 +472,61 @@ function Dashboard() {
     }
   };
 
-  if (loading) {
+  const handleViewStudent = async (student) => {
+    setLoading(true);
+    try {
+      const details = await api.getStudentDetails(student.user_id);
+      setSelectedStudent(details);
+      setStudentView(true);
+    } catch (error) {
+      console.error('Failed to load student details:', error);
+      alert('Failed to load student details: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading && !profile && !classData) {
     return <div className="text-center py-8">Loading dashboard...</div>;
   }
 
+  if (studentView && selectedStudent) {
+    return (
+      <StudentDetailView
+        student={selectedStudent}
+        onBack={() => {
+          setStudentView(false);
+          setSelectedStudent(null);
+          loadDashboardData();
+        }}
+      />
+    );
+  }
+
+  if (currentUser.role === 'member') {
+    return <MemberDashboard 
+      profile={profile} 
+      progress={progress} 
+      sections={sections} 
+      currentUser={currentUser}
+    />;
+  }
+
+  return (
+    <TrainerAdminDashboard
+      currentUser={currentUser}
+      classData={classData}
+      selectedClass={selectedClass}
+      setSelectedClass={setSelectedClass}
+      submissions={submissions}
+      sections={sections}
+      skills={skills}
+      onViewStudent={handleViewStudent}
+    />
+  );
+}
+
+function MemberDashboard({ profile, progress, sections, currentUser }) {
   if (!progress) {
     return <div className="text-center py-8">Failed to load progress data</div>;
   }
@@ -469,9 +540,7 @@ function Dashboard() {
         <h2 className="text-2xl font-bold text-gray-800 mb-4">
           Welcome back, {currentUser.username}!
         </h2>
-        {profile && (
-          <p className="text-gray-600">Training {profile.dog_name}</p>
-        )}
+        {profile && <p className="text-gray-600">Training {profile.dog_name}</p>}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
@@ -536,38 +605,483 @@ function Dashboard() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
 
-      {currentUser.role !== 'member' && submissions.length > 0 && (
+function TrainerAdminDashboard({ 
+  currentUser, 
+  classData, 
+  selectedClass, 
+  setSelectedClass,
+  submissions,
+  sections,
+  skills,
+  onViewStudent 
+}) {
+  const totalStudents = classData?.classes.reduce((sum, cls) => sum + cls.student_count, 0) || 0;
+  const pendingReviews = classData?.classes.reduce((sum, cls) => 
+    sum + (cls.students?.reduce((s, st) => s + st.pending_submissions, 0) || 0), 0
+  );
+  const readyForCert = classData?.classes.reduce((sum, cls) => 
+    sum + (cls.students?.filter(st => 
+      st.progress?.total_points >= st.progress?.points_required && 
+      st.progress?.sections_with_skills >= 6
+    ).length || 0), 0
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          My Classes
+        </h2>
+        <p className="text-gray-600">
+          Welcome back, {classData?.trainer_name || currentUser.username}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <User className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{totalStudents}</p>
+          <p className="text-sm opacity-90">Total Students</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <Book className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{classData?.classes.length || 0}</p>
+          <p className="text-sm opacity-90">Classes</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <Clock className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{pendingReviews}</p>
+          <p className="text-sm opacity-90">Pending Reviews</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <Award className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{readyForCert}</p>
+          <p className="text-sm opacity-90">Ready for Cert</p>
+        </div>
+      </div>
+
+      {classData && classData.classes && classData.classes.length > 0 ? (
+        <div className="bg-white rounded-lg shadow">
+          <div className="border-b flex overflow-x-auto">
+            {classData.classes.map(cls => (
+              <button
+                key={cls.id}
+                onClick={() => setSelectedClass(cls)}
+                className={`px-6 py-4 whitespace-nowrap font-medium transition ${
+                  selectedClass?.id === cls.id
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <div className="text-left">
+                  <div className="font-bold">{cls.name}</div>
+                  <div className="text-xs opacity-75">
+                    {cls.day_of_week} • {cls.time_slot} • {cls.student_count} students
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {selectedClass && (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-800">
+                  Class Roster - {selectedClass.name}
+                </h3>
+              </div>
+              
+              {selectedClass.students && selectedClass.students.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {selectedClass.students.map(student => (
+                    <TrainerStudentCard 
+                      key={student.user_id} 
+                      student={student}
+                      onClick={() => onViewStudent(student)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No students enrolled in this class yet.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow p-8 text-center">
+          <p className="text-gray-600 mb-2">You are not assigned to any classes yet.</p>
+          <p className="text-sm text-gray-500">
+            Contact an administrator to be assigned to a class.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TrainerStudentCard({ student, onClick }) {
+  const progress = student.progress || {};
+  const currentGrade = progress.current_grade || 0;
+  const nextGrade = currentGrade + 1;
+  const pointsRequired = progress.points_required || 20;
+  const totalPoints = progress.total_points || 0;
+  const progressPercent = Math.min((totalPoints / pointsRequired) * 100, 100);
+  const canCertify = progressPercent >= 100 && progress.sections_with_skills >= 6;
+
+  return (
+    <button
+      onClick={onClick}
+      className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 hover:shadow-lg transition text-left w-full"
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h4 className="font-bold text-gray-800 text-lg">{student.dog_name}</h4>
+          <p className="text-sm text-gray-600">{student.owners}</p>
+        </div>
+        <div className="text-right">
+          <div className="text-2xl font-bold text-blue-600">
+            {currentGrade > 0 ? currentGrade : '-'}
+          </div>
+          <div className="text-xs text-gray-500">Grade</div>
+        </div>
+      </div>
+
+      <div className="mb-3">
+        <div className="flex justify-between items-center mb-1">
+          <span className="text-xs text-gray-600">
+            Progress to Grade {nextGrade > 12 ? 12 : nextGrade}
+          </span>
+          <span className="text-xs font-medium text-gray-700">
+            {totalPoints}/{pointsRequired}
+          </span>
+        </div>
+        <div className="w-full bg-gray-200 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all ${
+              canCertify ? 'bg-green-500' : 'bg-blue-500'
+            }`}
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-center text-xs mb-3">
+        <div className="bg-white rounded p-2">
+          <div className="font-bold text-purple-600">{progress.sections_with_skills || 0}/6</div>
+          <div className="text-gray-600">Sections</div>
+        </div>
+        <div className="bg-white rounded p-2">
+          <div className="font-bold text-orange-600">{student.pending_submissions || 0}</div>
+          <div className="text-gray-600">Pending</div>
+        </div>
+      </div>
+
+      {canCertify && (
+        <div className="bg-green-100 border border-green-300 rounded px-3 py-2 flex items-center justify-between">
+          <span className="text-xs font-medium text-green-800">Ready for Certificate</span>
+          <Award className="w-4 h-4 text-green-600" />
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center justify-end text-blue-600">
+        <span className="text-xs font-medium">View Details</span>
+        <ChevronRight className="w-4 h-4 ml-1" />
+      </div>
+    </button>
+  );
+}
+
+function StudentDetailView({ student, onBack }) {
+  const { currentUser } = useContext(AppContext);
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [selectedSkill, setSelectedSkill] = useState(null);
+
+  const handleQuickApprove = (skill) => {
+    if (skill.status === 'completed') return;
+    setSelectedSkill(skill);
+    setShowApproveModal(true);
+  };
+
+  const handleDirectApprove = async (notes) => {
+    try {
+      await api.directApproveSkill({
+        user_id: student.user_id,
+        skill_id: selectedSkill.id,
+        notes: notes
+      });
+      alert(`${selectedSkill.title} approved! +${selectedSkill.points} points`);
+      onBack();
+    } catch (error) {
+      console.error('Failed to approve:', error);
+      alert('Failed to approve skill: ' + error.message);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center space-x-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+        >
+          ← Back to Class
+        </button>
+      </div>
+
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-lg p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">{student.dog_name}</h2>
+            <p className="text-blue-100 mb-1">Owner: {student.owners}</p>
+            <p className="text-blue-100 mb-1">Email: {student.email}</p>
+            <p className="text-blue-100">Class: {student.class_name}</p>
+          </div>
+          <div className="text-center bg-white/20 rounded-lg px-6 py-4">
+            <div className="text-4xl font-bold">{student.current_grade || 0}</div>
+            <div className="text-sm opacity-90">Current Grade</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold text-gray-800 mb-3">Progress Summary</h3>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-blue-600">{student.progress?.total_points || 0}</div>
+            <div className="text-sm text-gray-600">Total Points</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-purple-600">{student.progress?.sections_with_skills || 0}/6</div>
+            <div className="text-sm text-gray-600">Sections</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-orange-600">
+              {student.sections?.reduce((sum, sec) => 
+                sum + sec.skills.filter(sk => sk.status === 'pending').length, 0) || 0}
+            </div>
+            <div className="text-sm text-gray-600">Pending</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b">
+          <h3 className="text-xl font-bold text-gray-800">Skill Progress</h3>
+          <p className="text-sm text-gray-600 mt-1">Click any available skill to mark as complete</p>
+        </div>
+
+        {student.sections?.map(section => (
+          <div key={section.id} className="border-b last:border-b-0">
+            <button
+              onClick={() => setSelectedSection(
+                selectedSection === section.id ? null : section.id
+              )}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+            >
+              <div className="flex items-center space-x-3">
+                <Book className="w-5 h-5 text-gray-600" />
+                <span className="font-bold text-gray-800">{section.name}</span>
+                <span className="text-sm text-gray-500">
+                  ({section.skills.filter(s => s.status === 'completed').length}/{section.skills.length} completed)
+                </span>
+              </div>
+              <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${
+                selectedSection === section.id ? 'rotate-90' : ''
+              }`} />
+            </button>
+
+            {selectedSection === section.id && (
+              <div className="px-6 pb-4 bg-gray-50">
+                <div className="grid md:grid-cols-2 gap-3 pt-3">
+                  {section.skills.map(skill => (
+                    <TrainerSkillCard
+                      key={skill.id}
+                      skill={skill}
+                      onClick={() => handleQuickApprove(skill)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {student.recent_activity && student.recent_activity.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-xl font-bold text-gray-800 mb-4">Trainer Quick Stats</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center">
-              <p className="text-3xl font-bold text-blue-600">
-                {submissions.filter(s => s.status === 'requested' || s.status === 'submitted').length}
-              </p>
-              <p className="text-sm text-gray-600">Pending</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-green-600">
-                {submissions.filter(s => s.status === 'approved').length}
-              </p>
-              <p className="text-sm text-gray-600">Approved</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-purple-600">
-                {sections.length}
-              </p>
-              <p className="text-sm text-gray-600">Sections</p>
-            </div>
-            <div className="text-center">
-              <p className="text-3xl font-bold text-orange-600">
-                {skills.filter(s => s.active).length}
-              </p>
-              <p className="text-sm text-gray-600">Active Skills</p>
-            </div>
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Activity</h3>
+          <div className="space-y-3">
+            {student.recent_activity.map((activity, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <div>
+                  <p className="font-medium text-gray-800">{activity.skill}</p>
+                  <p className="text-sm text-gray-600">by {activity.trainer}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    activity.action === 'approved' 
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {activity.action}
+                  </span>
+                  <p className="text-xs text-gray-500 mt-1">{activity.date}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
+
+      {showApproveModal && selectedSkill && (
+        <QuickApproveModal
+          skill={selectedSkill}
+          studentName={student.dog_name}
+          onClose={() => {
+            setShowApproveModal(false);
+            setSelectedSkill(null);
+          }}
+          onApprove={handleDirectApprove}
+        />
+      )}
+    </div>
+  );
+}
+
+function TrainerSkillCard({ skill, onClick }) {
+  const statusConfig = {
+    completed: {
+      bg: 'bg-green-50 border-green-300',
+      icon: Check,
+      iconColor: 'text-green-600',
+      text: 'Completed'
+    },
+    pending: {
+      bg: 'bg-yellow-50 border-yellow-300',
+      icon: Clock,
+      iconColor: 'text-yellow-600',
+      text: 'Pending Review'
+    },
+    available: {
+      bg: 'bg-white border-gray-200',
+      icon: null,
+      iconColor: '',
+      text: 'Not Started'
+    }
+  };
+
+  const config = statusConfig[skill.status] || statusConfig.available;
+  const Icon = config.icon;
+
+  return (
+    <button
+      onClick={onClick}
+      disabled={skill.status === 'completed'}
+      className={`${config.bg} border-2 rounded-lg p-3 text-left hover:shadow-md transition ${
+        skill.status === 'completed' ? 'cursor-default opacity-75' : 'cursor-pointer hover:border-blue-400'
+      }`}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <h4 className="font-bold text-gray-800 text-sm flex-1">{skill.title}</h4>
+        {Icon && <Icon className={`w-4 h-4 ${config.iconColor} flex-shrink-0 ml-2`} />}
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+            {'⭐'.repeat(skill.difficulty)}
+          </span>
+          <span className="text-sm font-bold text-blue-600">{skill.points} pts</span>
+        </div>
+        <span className="text-xs text-gray-500">{config.text}</span>
+      </div>
+    </button>
+  );
+}
+
+function QuickApproveModal({ skill, studentName, onClose, onApprove }) {
+  const [notes, setNotes] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleApprove = async () => {
+    setLoading(true);
+    try {
+      await onApprove(notes);
+      onClose();
+    } catch (error) {
+      console.error('Failed to approve:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-2">Mark Skill Complete</h3>
+        <p className="text-gray-600 mb-4">
+          Approve <strong>{skill.title}</strong> for {studentName}
+        </p>
+
+        <div className="mb-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Training Notes (Optional)
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg h-24"
+            placeholder="Add any notes about their performance..."
+          />
+        </div>
+
+        <div className="bg-blue-50 border border-blue-200 rounded p-3 mb-4">
+          <p className="text-sm text-blue-800">
+            This will immediately add <strong>{skill.points} points</strong> to their progress.
+          </p>
+        </div>
+
+        <div className="flex space-x-3">
+          <button
+            onClick={handleApprove}
+            disabled={loading}
+            className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center space-x-2"
+          >
+            {loading ? (
+              <Clock className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Approve Skill</span>
+              </>
+            )}
+          </button>
+          <button
+            onClick={onClose}
+            disabled={loading}
+            className="px-6 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -616,18 +1130,22 @@ function SectionDetail({ section, onBack }) {
   const loadSectionData = async () => {
     setLoading(true);
     try {
-      const [skillsData, submissionsData, progressData] = await Promise.all([
-        api.getSkills(section.id),
-        api.getSubmissions(currentUser.id),
-        api.getGradeProgress(currentUser.id)
-      ]);
-      
+      const skillsData = await api.getSkills(section.id);
       setSectionSkills(skillsData);
-      setSubmissions(submissionsData);
-      
-      // Extract completions from progress data
-      const completionSkills = progressData.availableCompletions?.map(c => c.skill_id) || [];
-      setCompletions(completionSkills);
+
+      if (currentUser.role === 'member') {
+        const [submissionsData, progressData] = await Promise.all([
+          api.getSubmissions(currentUser.id),
+          api.getGradeProgress(currentUser.id)
+        ]);
+        
+        setSubmissions(submissionsData);
+        const completionSkills = progressData.availableCompletions?.map(c => c.skill_id) || [];
+        setCompletions(completionSkills);
+      } else {
+        setSubmissions([]);
+        setCompletions([]);
+      }
     } catch (error) {
       console.error('Failed to load section data:', error);
     } finally {
@@ -636,6 +1154,10 @@ function SectionDetail({ section, onBack }) {
   };
 
   const getSkillStatus = (skillId) => {
+    if (currentUser.role !== 'member') {
+      return 'available';
+    }
+
     if (completions.includes(skillId)) return 'completed';
     
     const submission = submissions.find(s => 
@@ -672,49 +1194,59 @@ function SectionDetail({ section, onBack }) {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sectionSkills.map(skill => {
-          const status = getSkillStatus(skill.id);
-          const statusColors = {
-            completed: 'border-green-500 bg-green-50',
-            requested: 'border-yellow-500 bg-yellow-50',
-            submitted: 'border-blue-500 bg-blue-50',
-            available: 'border-gray-200 bg-white'
-          };
-          
-          return (
-            <div
-              key={skill.id}
-              className={`border-2 rounded-lg p-4 ${statusColors[status]} cursor-pointer hover:shadow-lg transition`}
-              onClick={() => setSelectedSkill(skill)}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <h3 className="font-bold text-gray-800">{skill.title}</h3>
-                {status === 'completed' && <Check className="w-5 h-5 text-green-600" />}
-                {status === 'requested' && <Clock className="w-5 h-5 text-yellow-600" />}
-                {status === 'submitted' && <Upload className="w-5 h-5 text-blue-600" />}
-              </div>
-              <p className="text-sm text-gray-600 mb-3">{skill.description}</p>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                    {'⭐'.repeat(skill.difficulty)}
-                  </span>
-                  <span className="text-sm font-bold text-blue-600">{skill.points} pts</span>
+      {sectionSkills.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+          No skills found in this section.
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sectionSkills.map(skill => {
+            const status = getSkillStatus(skill.id);
+            const statusColors = {
+              completed: 'border-green-500 bg-green-50',
+              requested: 'border-yellow-500 bg-yellow-50',
+              submitted: 'border-blue-500 bg-blue-50',
+              available: 'border-gray-200 bg-white'
+            };
+            
+            return (
+              <div
+                key={skill.id}
+                className={`border-2 rounded-lg p-4 ${statusColors[status]} ${
+                  currentUser.role === 'member' ? 'cursor-pointer hover:shadow-lg' : ''
+                } transition`}
+                onClick={() => currentUser.role === 'member' && setSelectedSkill(skill)}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-bold text-gray-800">{skill.title}</h3>
+                  {status === 'completed' && <Check className="w-5 h-5 text-green-600" />}
+                  {status === 'requested' && <Clock className="w-5 h-5 text-yellow-600" />}
+                  {status === 'submitted' && <Upload className="w-5 h-5 text-blue-600" />}
                 </div>
-                <span className="text-xs text-gray-500 capitalize">{status}</span>
+                <p className="text-sm text-gray-600 mb-3">{skill.description}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                      {'⭐'.repeat(skill.difficulty)}
+                    </span>
+                    <span className="text-sm font-bold text-blue-600">{skill.points} pts</span>
+                  </div>
+                  {currentUser.role === 'member' && (
+                    <span className="text-xs text-gray-500 capitalize">{status}</span>
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
-      {selectedSkill && (
+      {selectedSkill && currentUser.role === 'member' && (
         <SkillSubmissionModal
           skill={selectedSkill}
           onClose={() => {
             setSelectedSkill(null);
-            loadSectionData(); // Reload to update status
+            loadSectionData();
           }}
         />
       )}
@@ -829,7 +1361,7 @@ function SkillSubmissionModal({ skill, onClose }) {
   );
 }
 
-// ============= MY CLASSES VIEW (TRAINER) =============
+// ============= MY CLASSES VIEW =============
 function MyClassesView() {
   const { currentUser } = useContext(AppContext);
   const [classData, setClassData] = useState(null);
@@ -1022,7 +1554,7 @@ function TrainerInbox() {
         trainer_id: currentUser.id
       });
       
-      loadSubmissions(); // Reload after update
+      loadSubmissions();
     } catch (error) {
       console.error('Failed to update submission:', error);
       alert('Failed to update submission: ' + error.message);
@@ -1214,20 +1746,18 @@ function CertificatesView() {
     if (!progress || !progress.canRequestCertificate) return;
     
     try {
-      // First achieve the grade
       await api.achieveGrade({
         user_id: currentUser.id,
         grade_number: progress.currentGrade,
         completion_ids: progress.completionIds
       });
       
-      // Then request certificate
       await api.requestCertificate({
         user_id: currentUser.id,
-        grade_id: progress.currentGrade // This should actually be the grade record ID, but we'll use grade number for now
+        grade_id: progress.currentGrade
       });
       
-      loadCertificatesData(); // Reload
+      loadCertificatesData();
     } catch (error) {
       console.error('Failed to request certificate:', error);
       alert('Failed to request certificate: ' + error.message);
