@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, createContext, useContext, useEffect } from 'react';
-import { Camera, Award, Book, User, LogOut, Menu, X, Check, Clock, AlertCircle, Upload, FileText, Star } from 'lucide-react';
-
+import { Camera, Award, Book, User, LogOut, Menu, X, Check, Clock, AlertCircle, Upload, FileText, Star, ChevronRight } from 'lucide-react';
 // ============= API CLIENT =============
 const API_BASE = '/api';
 
