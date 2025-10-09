@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { query } from '@/lib/db';
+import { query, sql } from '@/lib/db';
 import { cookies } from 'next/headers';
 
-// Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
+
 const gradeRequirements = {
   1: 20, 2: 20, 3: 20,
   4: 40, 5: 40, 6: 40,
@@ -11,102 +11,89 @@ const gradeRequirements = {
   10: 80, 11: 80, 12: 80
 };
 
-export async function GET(request) {
+export async function POST(request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const userId = searchParams.get('userId');
-    
-    if (!userId) {
+    const body = await request.json();
+    const { user_id, grade_number, completion_ids } = body;
+
+    if (!user_id || !grade_number || !completion_ids || !Array.isArray(completion_ids)) {
       return NextResponse.json(
-        { error: 'User ID required' },
+        { error: 'Missing required fields' },
         { status: 400 }
       );
     }
-    
-    // Get current grade (last achieved + 1)
-    const gradeResult = await query(
-      'SELECT MAX(grade_number) as last_grade FROM Grades WHERE user_id = @param0',
-      [parseInt(userId)]
+
+    // Validate grade number
+    if (grade_number < 1 || grade_number > 12) {
+      return NextResponse.json(
+        { error: 'Invalid grade number' },
+        { status: 400 }
+      );
+    }
+
+    // Check if grade already achieved
+    const existingGrade = await query(
+      'SELECT id FROM Grades WHERE user_id = @param0 AND grade_number = @param1',
+      [user_id, grade_number]
     );
+
+    if (existingGrade.recordset.length > 0) {
+      return NextResponse.json(
+        { error: 'Grade already achieved' },
+        { status: 400 }
+      );
+    }
+
+    const pointsRequired = gradeRequirements[grade_number];
+
+    // Start transaction
+    const pool = await sql.connect();
+    const transaction = new sql.Transaction(pool);
     
-    const lastGrade = gradeResult.recordset[0].last_grade || 0;
-    const currentGrade = lastGrade + 1;
-    
-    if (currentGrade > 12) {
+    try {
+      await transaction.begin();
+
+      // Create grade record
+      const gradeResult = await transaction.request()
+        .input('userId', sql.Int, user_id)
+        .input('gradeNumber', sql.Int, grade_number)
+        .input('pointsRequired', sql.Int, pointsRequired)
+        .query(`
+          INSERT INTO Grades (user_id, grade_number, points_required, achieved_at)
+          OUTPUT INSERTED.id
+          VALUES (@userId, @gradeNumber, @pointsRequired, GETDATE())
+        `);
+
+      const gradeId = gradeResult.recordset[0].id;
+
+      // Link completions to this grade
+      for (const completionId of completion_ids) {
+        await transaction.request()
+          .input('gradeId', sql.Int, gradeId)
+          .input('completionId', sql.Int, completionId)
+          .query(`
+            INSERT INTO GradeCompletions (grade_id, completion_id)
+            VALUES (@gradeId, @completionId)
+          `);
+      }
+
+      await transaction.commit();
+
       return NextResponse.json({
-        currentGrade: 12,
-        completed: true,
-        canRequestCertificate: false
+        success: true,
+        grade_id: gradeId,
+        message: `Grade ${grade_number} achieved!`
       });
+
+    } catch (err) {
+      await transaction.rollback();
+      throw err;
     }
-    
-    // Get completions already used in previous grades
-    const usedCompletions = await query(
-      `SELECT DISTINCT gc.completion_id
-       FROM GradeCompletions gc
-       JOIN Grades g ON gc.grade_id = g.id
-       WHERE g.user_id = @param0 AND g.grade_number < @param1`,
-      [parseInt(userId), currentGrade]
-    );
-    
-    const usedIds = usedCompletions.recordset.map(r => r.completion_id);
-    
-    // Get available completions for current grade
-    let availableQuery = `
-      SELECT 
-        c.id as completion_id,
-        c.skill_id,
-        s.section_id,
-        s.points,
-        s.title as skill_title,
-        sec.name as section_name
-      FROM Completions c
-      JOIN Skills s ON c.skill_id = s.id
-      JOIN Sections sec ON s.section_id = sec.id
-      WHERE c.user_id = @param0
-    `;
-    
-    const params = [parseInt(userId)];
-    
-    if (usedIds.length > 0) {
-      availableQuery += ` AND c.id NOT IN (${usedIds.join(',')})`;
-    }
-    
-    const available = await query(availableQuery, params);
-    
-    // Calculate totals
-    let totalPoints = 0;
-    const sectionPoints = {};
-    const sectionsWithSkills = new Set();
-    const completionIds = [];
-    
-    available.recordset.forEach(comp => {
-      totalPoints += comp.points;
-      sectionPoints[comp.section_id] = (sectionPoints[comp.section_id] || 0) + comp.points;
-      sectionsWithSkills.add(comp.section_id);
-      completionIds.push(comp.completion_id);
-    });
-    
-    const pointsRequired = gradeRequirements[currentGrade] || 0;
-    const canRequestCertificate = 
-      totalPoints >= pointsRequired && 
-      sectionsWithSkills.size === 6;
-    
-    return NextResponse.json({
-      currentGrade,
-      lastGrade,
-      pointsRequired,
-      totalPoints,
-      sectionPoints,
-      sectionsWithSkills: Array.from(sectionsWithSkills),
-      canRequestCertificate,
-      completionIds,
-      availableCompletions: available.recordset
-    });
+
   } catch (error) {
-    console.error('Error calculating grade progress:', error);
+    console.error('Grade achievement error:', error);
     return NextResponse.json(
-      { error: 'Failed to calculate progress' },
+      { error: 'Failed to achieve grade' },
       { status: 500 }
     );
   }
