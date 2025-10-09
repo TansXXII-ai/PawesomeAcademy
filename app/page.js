@@ -1,6 +1,6 @@
 'use client';
 import React, { useState, createContext, useContext, useEffect } from 'react';
-import { Camera, Award, Book, User, LogOut, Menu, X, Check, Clock, AlertCircle, Upload, FileText, Star, ChevronRight } from 'lucide-react';
+import { Camera, Award, Book, User, LogOut, Menu, X, Check, Clock, AlertCircle, Upload, FileText, Star, ChevronRight, Trophy, TrendingUp } from 'lucide-react';
 
 // ============= API CLIENT =============
 const API_BASE = '/api';
@@ -215,6 +215,7 @@ export default function PawcademyApp() {
                   {view === 'dashboard' && <Dashboard />}
                   {view === 'sections' && <SectionsView />}
                   {view === 'myclasses' && <MyClassesView />}
+                  {view === 'leaderboard' && <LeaderboardView />}
                   {view === 'inbox' && <TrainerInbox />}
                   {view === 'admin' && <AdminPanel />}
                   {view === 'profile' && <ProfileView />}
@@ -316,7 +317,10 @@ function Navigation({ view, setView }) {
 
   useEffect(() => {
     if (currentUser) {
-      loadProfile();
+      // Only load profile for members
+      if (currentUser.role === 'member') {
+        loadProfile();
+      }
       if (currentUser.role !== 'member') {
         loadPendingCount();
       }
@@ -348,6 +352,7 @@ function Navigation({ view, setView }) {
     { key: 'dashboard', label: 'Dashboard', icon: Award, roles: ['member', 'trainer', 'admin'] },
     { key: 'sections', label: 'Skills', icon: Book, roles: ['member', 'trainer', 'admin'] },
     { key: 'myclasses', label: 'My Classes', icon: User, roles: ['trainer', 'admin'] },
+    { key: 'leaderboard', label: 'Leaderboard', icon: Trophy, roles: ['trainer', 'admin'] },
     { key: 'inbox', label: `Inbox ${pendingCount > 0 ? `(${pendingCount})` : ''}`, icon: Clock, roles: ['trainer', 'admin'] },
     { key: 'certificates', label: 'Certificates', icon: FileText, roles: ['member', 'trainer', 'admin'] },
     { key: 'admin', label: 'Admin', icon: User, roles: ['admin'] },
@@ -364,7 +369,12 @@ function Navigation({ view, setView }) {
             <Award className="w-8 h-8 text-blue-600" />
             <div>
               <h1 className="text-xl font-bold text-gray-800">PawesomeAcademy</h1>
-              {profile && <p className="text-xs text-gray-600">{profile.dog_name}</p>}
+              {currentUser.role === 'member' && profile && (
+                <p className="text-xs text-gray-600">{profile.dog_name}</p>
+              )}
+              {currentUser.role !== 'member' && (
+                <p className="text-xs text-gray-600 capitalize">{currentUser.role}</p>
+              )}
             </div>
           </div>
 
@@ -453,12 +463,10 @@ function Dashboard() {
         setProfile(profileData);
         setProgress(progressData);
       } else {
-        const [profileData, submissionsData, classesData] = await Promise.all([
-          api.getProfile(currentUser.id).catch(() => null),
+        const [submissionsData, classesData] = await Promise.all([
           api.getSubmissions(),
           api.getMyStudents()
         ]);
-        setProfile(profileData);
         setSubmissions(submissionsData);
         setClassData(classesData);
         if (classesData.classes && classesData.classes.length > 0) {
@@ -630,11 +638,24 @@ function TrainerAdminDashboard({
     ).length || 0), 0
   );
 
+  // Calculate top 5 students by grade for selected class
+  const getTopStudents = (classObj) => {
+    if (!classObj || !classObj.students) return [];
+    return [...classObj.students]
+      .sort((a, b) => {
+        const gradeA = a.progress?.current_grade || 0;
+        const gradeB = b.progress?.current_grade || 0;
+        if (gradeB !== gradeA) return gradeB - gradeA;
+        return (b.progress?.total_points || 0) - (a.progress?.total_points || 0);
+      })
+      .slice(0, 5);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-2xl font-bold text-gray-800 mb-2">
-          My Classes
+          {currentUser.role === 'admin' ? 'Training Overview' : 'My Classes'}
         </h2>
         <p className="text-gray-600">
           Welcome back, {classData?.trainer_name || currentUser.username}
@@ -702,10 +723,41 @@ function TrainerAdminDashboard({
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-lg font-bold text-gray-800">
-                  Class Roster - {selectedClass.name}
+                  {selectedClass.name} - Top Performers
                 </h3>
               </div>
               
+              {/* Top 5 Students Leaderboard */}
+              {getTopStudents(selectedClass).length > 0 && (
+                <div className="mb-6 bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Trophy className="w-5 h-5 text-amber-600" />
+                    <h4 className="font-bold text-gray-800">Class Leaders</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {getTopStudents(selectedClass).map((student, idx) => (
+                      <div key={student.user_id} className="flex items-center space-x-3 bg-white rounded p-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                          idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-700' : 'bg-gray-300'
+                        }`}>
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800">{student.dog_name}</p>
+                          <p className="text-xs text-gray-500">{student.owners}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-blue-600">Grade {student.progress?.current_grade || 0}</p>
+                          <p className="text-xs text-gray-500">{student.progress?.total_points || 0} pts</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Full Class Roster */}
+              <h4 className="font-bold text-gray-700 mb-3">Full Roster</h4>
               {selectedClass.students && selectedClass.students.length > 0 ? (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {selectedClass.students.map(student => (
@@ -1081,6 +1133,201 @@ function QuickApproveModal({ skill, studentName, onClose, onApprove }) {
             Cancel
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============= LEADERBOARD VIEW =============
+function LeaderboardView() {
+  const { currentUser } = useContext(AppContext);
+  const [classData, setClassData] = useState(null);
+  const [selectedView, setSelectedView] = useState('overall');
+  const [selectedClass, setSelectedClass] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadLeaderboardData();
+  }, []);
+
+  const loadLeaderboardData = async () => {
+    setLoading(true);
+    try {
+      const data = await api.getMyStudents();
+      setClassData(data);
+      if (data.classes && data.classes.length > 0) {
+        setSelectedClass(data.classes[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load leaderboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getAllStudents = () => {
+    if (!classData || !classData.classes) return [];
+    const allStudents = [];
+    classData.classes.forEach(cls => {
+      if (cls.students) {
+        cls.students.forEach(student => {
+          allStudents.push({
+            ...student,
+            class_name: cls.name
+          });
+        });
+      }
+    });
+    return allStudents.sort((a, b) => {
+      const gradeA = a.progress?.current_grade || 0;
+      const gradeB = b.progress?.current_grade || 0;
+      if (gradeB !== gradeA) return gradeB - gradeA;
+      return (b.progress?.total_points || 0) - (a.progress?.total_points || 0);
+    });
+  };
+
+  const getClassStudents = (classObj) => {
+    if (!classObj || !classObj.students) return [];
+    return [...classObj.students].sort((a, b) => {
+      const gradeA = a.progress?.current_grade || 0;
+      const gradeB = b.progress?.current_grade || 0;
+      if (gradeB !== gradeA) return gradeB - gradeA;
+      return (b.progress?.total_points || 0) - (a.progress?.total_points || 0);
+    });
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading leaderboard...</div>;
+  }
+
+  const overallStudents = getAllStudents();
+  const classStudents = selectedClass ? getClassStudents(selectedClass) : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Leaderboard</h2>
+            <p className="text-gray-600">Top performing students</p>
+          </div>
+          <Trophy className="w-12 h-12 text-amber-500" />
+        </div>
+      </div>
+
+      <div className="flex space-x-2">
+        <button
+          onClick={() => setSelectedView('overall')}
+          className={`px-4 py-2 rounded-lg font-medium transition ${
+            selectedView === 'overall'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          Overall
+        </button>
+        <button
+          onClick={() => setSelectedView('class')}
+          className={`px-4 py-2 rounded-lg font-medium transition ${
+            selectedView === 'class'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          By Class
+        </button>
+      </div>
+
+      {selectedView === 'class' && classData && classData.classes && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+          <select
+            value={selectedClass?.id || ''}
+            onChange={(e) => {
+              const cls = classData.classes.find(c => c.id === parseInt(e.target.value));
+              setSelectedClass(cls);
+            }}
+            className="w-full px-4 py-2 border rounded-lg"
+          >
+            {classData.classes.map(cls => (
+              <option key={cls.id} value={cls.id}>
+                {cls.name} - {cls.day_of_week} {cls.time_slot}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b">
+          <h3 className="text-xl font-bold text-gray-800">
+            {selectedView === 'overall' ? 'Overall Rankings' : `${selectedClass?.name || 'Class'} Rankings`}
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Sorted by grade level and total points
+          </p>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-3">
+            {(selectedView === 'overall' ? overallStudents : classStudents).map((student, idx) => (
+              <LeaderboardRow key={student.user_id} student={student} rank={idx + 1} showClass={selectedView === 'overall'} />
+            ))}
+            {(selectedView === 'overall' ? overallStudents : classStudents).length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No students found
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeaderboardRow({ student, rank, showClass }) {
+  const progress = student.progress || {};
+  const currentGrade = progress.current_grade || 0;
+  const totalPoints = progress.total_points || 0;
+  
+  const medalColors = {
+    1: 'bg-gradient-to-br from-amber-400 to-amber-600',
+    2: 'bg-gradient-to-br from-gray-300 to-gray-500',
+    3: 'bg-gradient-to-br from-amber-600 to-amber-800'
+  };
+
+  return (
+    <div className={`flex items-center space-x-4 p-4 rounded-lg ${
+      rank <= 3 ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200' : 'bg-gray-50 border border-gray-200'
+    }`}>
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-lg ${
+        medalColors[rank] || 'bg-gray-400'
+      }`}>
+        {rank <= 3 ? <Trophy className="w-6 h-6" /> : rank}
+      </div>
+      
+      <div className="flex-1">
+        <div className="flex items-center space-x-2">
+          <h4 className="font-bold text-gray-800">{student.dog_name}</h4>
+          {rank === 1 && <span className="text-xs bg-amber-500 text-white px-2 py-1 rounded-full font-medium">Champion</span>}
+        </div>
+        <p className="text-sm text-gray-600">{student.owners}</p>
+        {showClass && <p className="text-xs text-gray-500">{student.class_name}</p>}
+      </div>
+
+      <div className="text-center px-4">
+        <div className="text-2xl font-bold text-blue-600">{currentGrade}</div>
+        <div className="text-xs text-gray-500">Grade</div>
+      </div>
+
+      <div className="text-center px-4">
+        <div className="text-lg font-bold text-purple-600">{totalPoints}</div>
+        <div className="text-xs text-gray-500">Points</div>
+      </div>
+
+      <div className="text-center px-4">
+        <div className="text-lg font-bold text-green-600">{progress.sections_with_skills || 0}/6</div>
+        <div className="text-xs text-gray-500">Sections</div>
       </div>
     </div>
   );
@@ -1515,6 +1762,9 @@ function StudentCard({ student }) {
     </div>
   );
 }
+
+// Continue with other components (TrainerInbox, Certificates, Profile, AdminPanel)...
+// [Rest of the code remains the same as in the previous version]
 
 // ============= TRAINER INBOX =============
 function TrainerInbox() {
@@ -1979,74 +2229,97 @@ function ProfileView() {
       <div className="bg-white rounded-lg shadow p-6 space-y-6">
         <h2 className="text-2xl font-bold text-gray-800">Profile</h2>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Dog Name</label>
-          <input
-            type="text"
-            value={formData.dog_name}
-            onChange={(e) => setFormData({ ...formData, dog_name: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
-            placeholder="Max"
-          />
-        </div>
+        {currentUser.role === 'member' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Dog Name</label>
+              <input
+                type="text"
+                value={formData.dog_name}
+                onChange={(e) => setFormData({ ...formData, dog_name: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+                placeholder="Max"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Owner(s)</label>
-          <input
-            type="text"
-            value={formData.owners}
-            onChange={(e) => setFormData({ ...formData, owners: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
-            placeholder="Sarah Johnson"
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Owner(s)</label>
+              <input
+                type="text"
+                value={formData.owners}
+                onChange={(e) => setFormData({ ...formData, owners: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg"
+                placeholder="Sarah Johnson"
+              />
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-          <select
-            value={formData.class_id || ''}
-            onChange={(e) => setFormData({ 
-              ...formData, 
-              class_id: e.target.value ? parseInt(e.target.value) : null 
-            })}
-            className="w-full px-4 py-2 border rounded-lg"
-          >
-            <option value="">Not assigned to a class</option>
-            {classes.map(cls => (
-              <option key={cls.id} value={cls.id}>
-                {cls.name} - {cls.day_of_week} {cls.time_slot}
-              </option>
-            ))}
-          </select>
-          <p className="text-xs text-gray-500 mt-1">
-            Select your regular training class
-          </p>
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
+              <select
+                value={formData.class_id || ''}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  class_id: e.target.value ? parseInt(e.target.value) : null 
+                })}
+                className="w-full px-4 py-2 border rounded-lg"
+              >
+                <option value="">Not assigned to a class</option>
+                {classes.map(cls => (
+                  <option key={cls.id} value={cls.id}>
+                    {cls.name} - {cls.day_of_week} {cls.time_slot}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Select your regular training class
+              </p>
+            </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-          <textarea
-            value={formData.notes}
-            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg h-24"
-            placeholder="Any important information about your dog..."
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                className="w-full px-4 py-2 border rounded-lg h-24"
+                placeholder="Any important information about your dog..."
+              />
+            </div>
 
-        <button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-        >
-          {saving ? 'Saving...' : 'Save Profile'}
-        </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {saving ? 'Saving...' : 'Save Profile'}
+            </button>
 
-        {profile && profile.class_name && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <p className="text-sm font-medium text-blue-800">Current Class</p>
-            <p className="text-blue-700">
-              {profile.class_name} - {profile.day_of_week} {profile.time_slot}
-            </p>
+            {profile && profile.class_name && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-blue-800">Current Class</p>
+                <p className="text-blue-700">
+                  {profile.class_name} - {profile.day_of_week} {profile.time_slot}
+                </p>
+              </div>
+            )}
+          </>
+        )}
+
+        {currentUser.role !== 'member' && (
+          <div className="text-center py-8">
+            <User className="w-16 h-16 mx-auto text-gray-400 mb-4" />
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              {currentUser.username}
+            </h3>
+            <p className="text-gray-600 mb-1">{currentUser.email}</p>
+            <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium capitalize">
+              {currentUser.role}
+            </span>
+            
+            <div className="mt-6 pt-6 border-t">
+              <p className="text-sm text-gray-600">
+                Trainer and Admin accounts don't require dog profiles.
+              </p>
+            </div>
           </div>
         )}
       </div>
