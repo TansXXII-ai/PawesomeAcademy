@@ -1,3 +1,6 @@
+import { NextResponse } from 'next/server';
+import { query } from '@/lib/db';
+
 // POST new certificate request - UPDATED VERSION
 // Replace the POST function in app/api/certificates/route.js with this:
 
