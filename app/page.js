@@ -573,6 +573,7 @@ function Dashboard() {
   );
 }
 
+// ============= MEMBER DASHBOARD (FIXED) =============
 function MemberDashboard({ profile, progress, sections, currentUser }) {
   const { showToast } = useContext(ToastContext);
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -584,8 +585,9 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
   const gradeReq = progress.pointsRequired;
   const currentGrade = progress.currentGrade;
   const hasEnoughPoints = progress.totalPoints >= gradeReq;
-  const hasAllSections = progress.sectionsWithSkills.length === 6;
-  const canRequestGrade = hasEnoughPoints && hasAllSections;
+  
+  // FIXED: Only check points, not sections
+  const canRequestGrade = hasEnoughPoints;
 
   const handleRequestGrade = async () => {
     try {
@@ -637,6 +639,7 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         </div>
       </div>
 
+      {/* FIXED: Only show ready banner when points requirement is met */}
       {canRequestGrade && (
         <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
           <div className="flex items-center justify-between">
@@ -645,7 +648,7 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
                 Ready for Grade {currentGrade}!
               </h3>
               <p className="text-green-700 text-sm">
-                You've met all requirements. Request approval from your trainer.
+                You've earned {progress.totalPoints} points (required: {gradeReq}). Request approval from your trainer.
               </p>
             </div>
             <button
@@ -658,18 +661,11 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         </div>
       )}
 
+      {/* FIXED: Only show points warning */}
       {!hasEnoughPoints && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
             <strong>Need {gradeReq - progress.totalPoints} more points</strong> to reach Grade {currentGrade} requirement.
-          </p>
-        </div>
-      )}
-
-      {hasEnoughPoints && !hasAllSections && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <p className="text-sm text-yellow-800">
-            <strong>Complete skills in all 6 sections</strong> to be eligible for Grade {currentGrade}. Currently {progress.sectionsWithSkills.length}/6 sections.
           </p>
         </div>
       )}
@@ -685,7 +681,7 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
                 <div className="flex justify-between items-center mb-2">
                   <span className="font-medium text-gray-700">{section.name}</span>
                   <span className="text-sm text-gray-600">
-                    {sectionPoints} pts {hasSkill ? '✓' : '❌'}
+                    {sectionPoints} pts {hasSkill ? '✓' : ''}
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
@@ -711,10 +707,6 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
               <li className="flex items-center space-x-2 text-green-700">
                 <Check className="w-5 h-5" />
                 <span>{progress.totalPoints} points (required: {gradeReq})</span>
-              </li>
-              <li className="flex items-center space-x-2 text-green-700">
-                <Check className="w-5 h-5" />
-                <span>All 6 sections completed</span>
               </li>
             </ul>
             <p className="text-sm text-gray-600 mb-6">
@@ -757,8 +749,7 @@ function TrainerAdminDashboard({
   );
   const readyForCert = classData?.classes.reduce((sum, cls) => 
     sum + (cls.students?.filter(st => 
-      st.progress?.total_points >= st.progress?.points_required && 
-      st.progress?.sections_with_skills >= 6
+      st.progress?.total_points >= st.progress?.points_required
     ).length || 0), 0
   );
 
@@ -916,7 +907,7 @@ function TrainerStudentCard({ student, onClick }) {
   const pointsRequired = progress.points_required || 20;
   const totalPoints = progress.total_points || 0;
   const progressPercent = Math.min((totalPoints / pointsRequired) * 100, 100);
-  const canCertify = progressPercent >= 100 && progress.sections_with_skills >= 6;
+  const canCertify = progressPercent >= 100;
 
   return (
     <button
@@ -1888,7 +1879,7 @@ function StudentCard({ student }) {
         </div>
       </div>
 
-      {progressPercent >= 100 && progress.sections_with_skills >= 6 && (
+      {progressPercent >= 100 && (
         <div className="bg-green-50 border border-green-200 rounded px-2 py-1 text-center">
           <p className="text-xs font-medium text-green-800">Ready for Certificate!</p>
         </div>
