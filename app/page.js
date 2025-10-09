@@ -591,10 +591,21 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
 
   const handleRequestGrade = async () => {
     try {
-      await api.requestCertificate({
+      const achievement = await api.achieveGrade({
         user_id: currentUser.id,
         grade_number: currentGrade,
-        completion_ids: progress.completionIds
+        completion_ids: progress.completionIds,
+      });
+
+      const gradeId = achievement?.grade_id;
+
+      if (!gradeId) {
+        throw new Error('Unable to record grade achievement');
+      }
+
+      await api.requestCertificate({
+        user_id: currentUser.id,
+        grade_id: gradeId,
       });
       showToast(`Grade ${currentGrade} request submitted!`, 'success');
       setShowRequestModal(false);
