@@ -42,14 +42,44 @@ export async function GET(request) {
   }
 }
 
-// POST new skill
+// POST new skill (admin only)
 export async function POST(request) {
   try {
+    const cookieStore = cookies();
+    const userCookie = cookieStore.get('user');
+    
+    if (!userCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentUser = JSON.parse(userCookie.value);
+    
+    // Only admins can create skills
+    if (currentUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const { section_id, title, description, difficulty, points, display_order } = await request.json();
     
     if (!section_id || !title || !description || !difficulty || !points) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    // Validate difficulty (1-5)
+    if (difficulty < 1 || difficulty > 5) {
+      return NextResponse.json(
+        { error: 'Difficulty must be between 1 and 5' },
+        { status: 400 }
+      );
+    }
+
+    // Validate points (2, 5, 10, 15)
+    if (![2, 5, 10, 15].includes(points)) {
+      return NextResponse.json(
+        { error: 'Points must be 2, 5, 10, or 15' },
         { status: 400 }
       );
     }
