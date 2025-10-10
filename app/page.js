@@ -82,10 +82,11 @@ const api = {
       body: JSON.stringify(profile),
     }),
   
-  getSubmissions: (userId = null, status = null) => {
+  getSubmissions: (userId = null, status = null, myClassOnly = false) => {
     const params = new URLSearchParams();
     if (userId) params.append('userId', userId);
     if (status) params.append('status', status);
+    if (myClassOnly) params.append('myClassOnly', 'true');
     return fetchAPI(`/submissions?${params}`);
   },
   
@@ -136,6 +137,8 @@ const api = {
     return fetchAPI(`/classes?${params}`);
   },
 
+  getAllClasses: () => fetchAPI('/classes?includeMembers=true'),
+
   createClass: (classData) =>
     fetchAPI('/classes', {
       method: 'POST',
@@ -166,6 +169,12 @@ const gradeRequirements = {
   4: 40, 5: 40, 6: 40,
   7: 60, 8: 60, 9: 60,
   10: 80, 11: 80, 12: 80
+};
+
+// Helper function to display role names
+const getRoleDisplayName = (role) => {
+  if (role === 'member') return 'Pawsome Pal';
+  return role.charAt(0).toUpperCase() + role.slice(1);
 };
 
 // ============= MAIN APP =============
@@ -375,7 +384,7 @@ function Navigation({ view, setView }) {
   const loadPendingCount = async () => {
     try {
       const [submissions, certificates] = await Promise.all([
-        api.getSubmissions(null, null),
+        api.getSubmissions(null, null, false),
         api.getCertificates(null, 'pending')
       ]);
       const pending = submissions.filter(s => 
@@ -413,7 +422,7 @@ function Navigation({ view, setView }) {
                 <p className="text-xs text-gray-600">{profile.dog_name}</p>
               )}
               {currentUser.role !== 'member' && (
-                <p className="text-xs text-gray-600 capitalize">{currentUser.role}</p>
+                <p className="text-xs text-gray-600">{getRoleDisplayName(currentUser.role)}</p>
               )}
             </div>
           </div>
@@ -503,14 +512,31 @@ function Dashboard() {
         setProfile(profileData);
         setProgress(progressData);
       } else {
+        // FIXED: Admins see all classes, trainers see only their classes
         const [submissionsData, classesData] = await Promise.all([
-          api.getSubmissions(),
-          api.getMyStudents()
+          api.getSubmissions(null, null, currentUser.role === 'trainer'),
+          currentUser.role === 'admin' ? api.getAllClasses() : api.getMyStudents()
         ]);
         setSubmissions(submissionsData);
-        setClassData(classesData);
-        if (classesData.classes && classesData.classes.length > 0) {
-          setSelectedClass(classesData.classes[0]);
+        
+        // Handle different response formats
+        if (currentUser.role === 'admin') {
+          // Admin gets array of classes directly
+          const formattedClasses = classesData.map(cls => ({
+            ...cls,
+            students: [], // We'll load students on demand
+            student_count: cls.member_count || 0
+          }));
+          setClassData({ classes: formattedClasses });
+          if (formattedClasses.length > 0) {
+            setSelectedClass(formattedClasses[0]);
+          }
+        } else {
+          // Trainer gets classes with students
+          setClassData(classesData);
+          if (classesData.classes && classesData.classes.length > 0) {
+            setSelectedClass(classesData.classes[0]);
+          }
         }
       }
     } catch (error) {
@@ -586,11 +612,11 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
   const currentGrade = progress.currentGrade;
   const hasEnoughPoints = progress.totalPoints >= gradeReq;
   
-  // FIXED: Only check points, not sections
- const canRequestGrade = hasEnoughPoints;
+  const canRequestGrade = hasEnoughPoints;
 
   const handleRequestGrade = async () => {
     try {
+      // First achieve the grade
       const achievement = await api.achieveGrade({
         user_id: currentUser.id,
         grade_number: currentGrade,
@@ -603,10 +629,12 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         throw new Error('Unable to record grade achievement');
       }
 
+      // FIXED: Request certificate with correct parameters
       await api.requestCertificate({
         user_id: currentUser.id,
-        grade_id: gradeId,
+        grade_number: currentGrade
       });
+      
       showToast(`Grade ${currentGrade} request submitted!`, 'success');
       setShowRequestModal(false);
       window.location.reload();
@@ -650,7 +678,6 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         </div>
       </div>
 
-      {/* FIXED: Only show ready banner when points requirement is met */}
       {canRequestGrade && (
         <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
           <div className="flex items-center justify-between">
@@ -672,7 +699,6 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         </div>
       )}
 
-      {/* FIXED: Only show points warning */}
       {!hasEnoughPoints && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <p className="text-sm text-blue-800">
@@ -901,9 +927,15 @@ function TrainerAdminDashboard({
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow p-8 text-center">
-          <p className="text-gray-600 mb-2">You are not assigned to any classes yet.</p>
+          <p className="text-gray-600 mb-2">
+            {currentUser.role === 'admin' 
+              ? 'No classes have been created yet.' 
+              : 'You are not assigned to any classes yet.'}
+          </p>
           <p className="text-sm text-gray-500">
-            Contact an administrator to be assigned to a class.
+            {currentUser.role === 'admin'
+              ? 'Create a class to get started.'
+              : 'Contact an administrator to be assigned to a class.'}
           </p>
         </div>
       )}
@@ -1291,10 +1323,22 @@ function LeaderboardView() {
   const loadLeaderboardData = async () => {
     setLoading(true);
     try {
-      const data = await api.getMyStudents();
-      setClassData(data);
-      if (data.classes && data.classes.length > 0) {
-        setSelectedClass(data.classes[0]);
+      // FIXED: Admins see all classes, trainers see only their classes
+      const data = currentUser.role === 'admin' 
+        ? await api.getAllClasses() 
+        : await api.getMyStudents();
+      
+      if (currentUser.role === 'admin') {
+        // Format admin data to match trainer data structure
+        setClassData({ classes: data });
+        if (data.length > 0) {
+          setSelectedClass(data[0]);
+        }
+      } else {
+        setClassData(data);
+        if (data.classes && data.classes.length > 0) {
+          setSelectedClass(data.classes[0]);
+        }
       }
     } catch (error) {
       console.error('Failed to load leaderboard data:', error);
@@ -1758,10 +1802,21 @@ function MyClassesView() {
   const loadMyClasses = async () => {
     setLoading(true);
     try {
-      const data = await api.getMyStudents();
-      setClassData(data);
-      if (data.classes && data.classes.length > 0) {
-        setSelectedClass(data.classes[0]);
+      // FIXED: Admins see all classes, trainers see only their classes
+      const data = currentUser.role === 'admin' 
+        ? await api.getAllClasses() 
+        : await api.getMyStudents();
+      
+      if (currentUser.role === 'admin') {
+        setClassData({ classes: data });
+        if (data.length > 0) {
+          setSelectedClass(data[0]);
+        }
+      } else {
+        setClassData(data);
+        if (data.classes && data.classes.length > 0) {
+          setSelectedClass(data.classes[0]);
+        }
       }
     } catch (error) {
       console.error('Failed to load classes:', error);
@@ -1778,9 +1833,15 @@ function MyClassesView() {
     return (
       <div className="bg-white rounded-lg shadow p-8 text-center">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">My Classes</h2>
-        <p className="text-gray-600">You are not assigned to any classes yet.</p>
+        <p className="text-gray-600">
+          {currentUser.role === 'admin' 
+            ? 'No classes have been created yet.' 
+            : 'You are not assigned to any classes yet.'}
+        </p>
         <p className="text-sm text-gray-500 mt-2">
-          Contact an administrator to be assigned to a class.
+          {currentUser.role === 'admin'
+            ? 'Create a class to get started.'
+            : 'Contact an administrator to be assigned to a class.'}
         </p>
       </div>
     );
@@ -1805,7 +1866,7 @@ function MyClassesView() {
               <div className="text-left">
                 <div>{cls.name}</div>
                 <div className="text-xs opacity-75">
-                  {cls.day_of_week} {cls.time_slot} • {cls.student_count} students
+                  {cls.day_of_week} {cls.time_slot} • {cls.student_count || cls.member_count || 0} students
                 </div>
               </div>
             </button>
@@ -1915,7 +1976,8 @@ function TrainerInbox() {
     setLoading(true);
     try {
       const statusFilter = filter === 'all' ? null : filter === 'pending' ? null : filter;
-      const data = await api.getSubmissions(null, statusFilter);
+      // FIXED: Trainers only see their class submissions
+      const data = await api.getSubmissions(null, statusFilter, currentUser.role === 'trainer');
       
       let filtered = data;
       if (filter === 'pending') {
@@ -2148,318 +2210,3 @@ function CertificatesView() {
 
   if (loading) {
     return <div className="text-center py-8">Loading...</div>;
-  }
-
-  if (currentUser.role !== 'member') {
-    return (
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold text-gray-800">Grade Approval Requests</h2>
-        
-        {pendingRequests.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-            No pending grade requests
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {pendingRequests.map(request => (
-              <div key={request.id} className="bg-white rounded-lg shadow p-6 border-l-4 border-yellow-500">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-bold text-gray-800 mb-2">
-                      {request.dog_name} - Grade {request.grade_number}
-                    </h3>
-                    <p className="text-gray-600 mb-1">Member: {request.member_name}</p>
-                    <p className="text-sm text-gray-500">
-                      Requested: {new Date(request.requested_at).toLocaleDateString()}
-                    </p>
-                    {request.class_name && (
-                      <p className="text-sm text-gray-500">Class: {request.class_name}</p>
-                    )}
-                  </div>
-                  <div className="flex flex-col space-y-2">
-                    <button
-                      onClick={() => handleApproveGrade(request.id, request.dog_name, request.grade_number)}
-                      className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition flex items-center space-x-2"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>Approve Grade</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">My Certificates</h2>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        {certificates.map(cert => (
-          <CertificateCard key={cert.id} certificate={cert} profile={profile} />
-        ))}
-        
-        {certificates.length === 0 && (
-          <div className="col-span-2 bg-white rounded-lg shadow p-8 text-center text-gray-500">
-            No certificates yet. Keep training to earn your first grade!
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function CertificateCard({ certificate, profile }) {
-  const statusColors = {
-    pending: 'border-yellow-300 bg-yellow-50',
-    approved: 'border-green-300 bg-green-50'
-  };
-
-  return (
-    <div className={`border-2 rounded-lg p-6 ${statusColors[certificate.status]}`}>
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-xl font-bold text-gray-800">Grade {certificate.grade_number}</h3>
-          <p className="text-sm text-gray-600">{profile?.dog_name || certificate.dog_name}</p>
-        </div>
-        <Award className={`w-8 h-8 ${certificate.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`} />
-      </div>
-      
-      <div className="space-y-2 text-sm">
-        <p className="text-gray-600">
-          Status: <span className="font-medium capitalize">{certificate.status}</span>
-        </p>
-        {certificate.status === 'pending' && (
-          <p className="text-yellow-700">Waiting for trainer approval</p>
-        )}
-        {certificate.approved_at && (
-          <p className="text-gray-600">
-            Approved: {new Date(certificate.approved_at).toLocaleDateString()}
-          </p>
-        )}
-        {certificate.public_code && (
-          <p className="text-gray-600">
-            Certificate ID: <span className="font-mono font-bold">{certificate.public_code}</span>
-          </p>
-        )}
-      </div>
-
-      {certificate.status === 'approved' && (
-        <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
-          Download PDF
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ============= PROFILE VIEW =============
-function ProfileView() {
-  const { currentUser } = useContext(AppContext);
-  const { showToast } = useContext(ToastContext);
-  const [profile, setProfile] = useState(null);
-  const [classes, setClasses] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    dog_name: '',
-    owners: '',
-    notes: '',
-    class_id: null
-  });
-
-  useEffect(() => {
-    loadProfileData();
-  }, [currentUser]);
-
-  const loadProfileData = async () => {
-    setLoading(true);
-    try {
-      const [profileData, classesData] = await Promise.all([
-        api.getProfile(currentUser.id).catch(() => null),
-        api.getClasses()
-      ]);
-      
-      setProfile(profileData);
-      setClasses(classesData);
-      setFormData({
-        dog_name: profileData?.dog_name || '',
-        owners: profileData?.owners || '',
-        notes: profileData?.notes || '',
-        class_id: profileData?.class_id || null
-      });
-    } catch (error) {
-      console.error('Failed to load profile data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await api.saveProfile({
-        user_id: currentUser.id,
-        ...formData
-      });
-      
-      showToast('Profile saved successfully!', 'success');
-      loadProfileData();
-    } catch (error) {
-      showToast(error.message || 'Failed to save profile', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
-    return <div className="text-center py-8">Loading profile...</div>;
-  }
-
-  return (
-    <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow p-6 space-y-6">
-        <h2 className="text-2xl font-bold text-gray-800">Profile</h2>
-
-        {currentUser.role === 'member' && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dog Name</label>
-              <input
-                type="text"
-                value={formData.dog_name}
-                onChange={(e) => setFormData({ ...formData, dog_name: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg"
-                placeholder="Max"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Owner(s)</label>
-              <input
-                type="text"
-                value={formData.owners}
-                onChange={(e) => setFormData({ ...formData, owners: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg"
-                placeholder="Sarah Johnson"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Class</label>
-              <select
-                value={formData.class_id || ''}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  class_id: e.target.value ? parseInt(e.target.value) : null 
-                })}
-                className="w-full px-4 py-2 border rounded-lg"
-              >
-                <option value="">Not assigned to a class</option>
-                {classes.map(cls => (
-                  <option key={cls.id} value={cls.id}>
-                    {cls.name} - {cls.day_of_week} {cls.time_slot}
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Select your regular training class
-              </p>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="w-full px-4 py-2 border rounded-lg h-24"
-                placeholder="Any important information about your dog..."
-              />
-            </div>
-
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
-            >
-              {saving ? 'Saving...' : 'Save Profile'}
-            </button>
-
-            {profile && profile.class_name && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm font-medium text-blue-800">Current Class</p>
-                <p className="text-blue-700">
-                  {profile.class_name} - {profile.day_of_week} {profile.time_slot}
-                </p>
-              </div>
-            )}
-          </>
-        )}
-
-        {currentUser.role !== 'member' && (
-          <div className="text-center py-8">
-            <User className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-bold text-gray-800 mb-2">
-              {currentUser.username}
-            </h3>
-            <p className="text-gray-600 mb-1">{currentUser.email}</p>
-            <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium capitalize">
-              {currentUser.role}
-            </span>
-            
-            <div className="mt-6 pt-6 border-t">
-              <p className="text-sm text-gray-600">
-                Trainer and Admin accounts don't require dog profiles.
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ============= ADMIN PANEL =============
-function AdminPanel() {
-  const [activeTab, setActiveTab] = useState('skills');
-
-  return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
-
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-        <p className="text-sm text-yellow-800">
-          Admin panel features (skill/section/user management) will be connected to API in future update.
-          For now, manage data directly in Azure SQL Database using Query Editor.
-        </p>
-      </div>
-
-      <div className="flex space-x-2 border-b">
-        {['skills', 'sections', 'users'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 capitalize ${
-              activeTab === tab
-                ? 'border-b-2 border-blue-600 text-blue-600 font-medium'
-                : 'text-gray-600 hover:text-gray-800'
-            }`}
-          >
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-6">
-        <p className="text-gray-600">
-          Admin CRUD operations will be implemented in a future update. 
-          Currently, use Azure Portal Query Editor to manage {activeTab}.
-        </p>
-      </div>
-    </div>
-  );
-}
