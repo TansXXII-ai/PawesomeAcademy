@@ -111,3 +111,133 @@ export async function POST(request) {
     );
   }
 }
+
+// PATCH update user password (admin only)
+export async function PATCH(request) {
+  try {
+    const cookieStore = cookies();
+    const userCookie = cookieStore.get('user');
+    
+    if (!userCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentUser = JSON.parse(userCookie.value);
+    
+    // Only admins can reset passwords
+    if (currentUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const body = await request.json();
+    const { user_id, new_password } = body;
+
+    // Validate required fields
+    if (!user_id || !new_password) {
+      return NextResponse.json(
+        { error: 'Missing required fields: user_id, new_password' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user exists
+    const userCheck = await query(
+      'SELECT id, email FROM Users WHERE id = @param0',
+      [user_id]
+    );
+
+    if (userCheck.recordset.length === 0) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Hash new password
+    const hashedPassword = await hashPassword(new_password);
+
+    // Update password
+    await query(
+      'UPDATE Users SET password_hash = @param0 WHERE id = @param1',
+      [hashedPassword, user_id]
+    );
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Password updated successfully' 
+    });
+  } catch (error) {
+    console.error('Update password error:', error);
+    return NextResponse.json(
+      { error: 'Failed to update password' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE user (admin only)
+export async function DELETE(request) {
+  try {
+    const cookieStore = cookies();
+    const userCookie = cookieStore.get('user');
+    
+    if (!userCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentUser = JSON.parse(userCookie.value);
+    
+    // Only admins can delete users
+    if (currentUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const userId = searchParams.get('userId');
+
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'User ID required' },
+        { status: 400 }
+      );
+    }
+
+    // Prevent admin from deleting themselves
+    if (parseInt(userId) === currentUser.id) {
+      return NextResponse.json(
+        { error: 'Cannot delete your own account' },
+        { status: 400 }
+      );
+    }
+
+    // Check if user exists
+    const userCheck = await query(
+      'SELECT id, email, role FROM Users WHERE id = @param0',
+      [parseInt(userId)]
+    );
+
+    if (userCheck.recordset.length === 0) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Soft delete by setting active = 0
+    await query(
+      'UPDATE Users SET active = 0 WHERE id = @param0',
+      [parseInt(userId)]
+    );
+
+    return NextResponse.json({ 
+      success: true, 
+      message: 'User deactivated successfully' 
+    });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    return NextResponse.json(
+      { error: 'Failed to delete user' },
+      { status: 500 }
+    );
+  }
+}
