@@ -23,10 +23,10 @@ function ToastProvider({ children }) {
         {toasts.map(toast => (
           <div
             key={toast.id}
-            className={`px-6 py-3 rounded-lg shadow-lg text-white font-medium animate-slide-in ${
-              toast.type === 'success' ? 'bg-green-600' :
-              toast.type === 'error' ? 'bg-red-600' :
-              toast.type === 'info' ? 'bg-blue-600' : 'bg-gray-600'
+            className={`px-6 py-3 rounded-lg shadow-lg text-white font-medium animate-slide-in border-2 ${
+              toast.type === 'success' ? 'bg-[#32303b] border-[#dcac6e]' :
+              toast.type === 'error' ? 'bg-red-600 border-red-800' :
+              toast.type === 'info' ? 'bg-[#dcac6e] text-[#32303b] border-[#c49654]' : 'bg-gray-600 border-gray-800'
             }`}
           >
             {toast.message}
@@ -315,7 +315,7 @@ function LoginPage({ onLogin }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#dcac6e] focus:border-transparent"
               placeholder="member@pawesomeacademy.com"
               disabled={loading}
             />
@@ -328,7 +328,7 @@ function LoginPage({ onLogin }) {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#dcac6e] focus:border-transparent"
               placeholder="••••••••"
               disabled={loading}
             />
@@ -339,7 +339,7 @@ function LoginPage({ onLogin }) {
           <button
             onClick={handleSubmit}
             disabled={loading}
-            className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-black transition disabled:opacity-50"
+            className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition disabled:opacity-50"
           >
             {loading ? 'Logging in...' : 'Login'}
           </button>
@@ -411,18 +411,18 @@ function Navigation({ view, setView }) {
   const allowedItems = navItems.filter(item => item.roles.includes(currentUser.role));
 
   return (
-    <nav className="bg-white shadow-md">
+    <nav className="bg-[#32303b] shadow-md border-b-4 border-[#dcac6e]">
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-3">
-            <Award className="w-8 h-8 text-blue-600" />
+            <Award className="w-8 h-8 text-[#dcac6e]" />
             <div>
-              <h1 className="text-xl font-bold text-gray-800">PawesomeAcademy</h1>
+              <h1 className="text-xl font-bold text-white">PawesomeAcademy</h1>
               {currentUser.role === 'member' && profile && (
-                <p className="text-xs text-gray-600">{profile.dog_name}</p>
+                <p className="text-xs text-[#dcac6e]">{profile.dog_name}</p>
               )}
               {currentUser.role !== 'member' && (
-                <p className="text-xs text-gray-600">{getRoleDisplayName(currentUser.role)}</p>
+                <p className="text-xs text-[#dcac6e]">{getRoleDisplayName(currentUser.role)}</p>
               )}
             </div>
           </div>
@@ -433,7 +433,7 @@ function Navigation({ view, setView }) {
                 key={item.key}
                 onClick={() => setView(item.key)}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  view === item.key ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+                  view === item.key ? 'bg-[#dcac6e] text-[#32303b] font-medium' : 'text-white hover:bg-[#dcac6e] hover:bg-opacity-20'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -442,7 +442,7 @@ function Navigation({ view, setView }) {
             ))}
             <button
               onClick={logout}
-              className="flex items-center space-x-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+              className="flex items-center space-x-2 px-3 py-2 text-[#dcac6e] hover:bg-[#dcac6e] hover:bg-opacity-20 rounded-lg transition"
             >
               <LogOut className="w-5 h-5" />
               <span>Logout</span>
@@ -451,7 +451,7 @@ function Navigation({ view, setView }) {
 
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden"
+            className="md:hidden text-white"
           >
             {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
@@ -464,7 +464,7 @@ function Navigation({ view, setView }) {
                 key={item.key}
                 onClick={() => { setView(item.key); setMobileMenuOpen(false); }}
                 className={`w-full flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  view === item.key ? 'bg-blue-100 text-blue-700' : 'text-gray-700 hover:bg-gray-100'
+                  view === item.key ? 'bg-[#dcac6e] text-[#32303b] font-medium' : 'text-white hover:bg-[#dcac6e] hover:bg-opacity-20'
                 }`}
               >
                 <item.icon className="w-5 h-5" />
@@ -473,7 +473,7 @@ function Navigation({ view, setView }) {
             ))}
             <button
               onClick={logout}
-              className="w-full flex items-center space-x-2 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+              className="w-full flex items-center space-x-2 px-3 py-2 text-[#dcac6e] hover:bg-[#dcac6e] hover:bg-opacity-20 rounded-lg transition"
             >
               <LogOut className="w-5 h-5" />
               <span>Logout</span>
@@ -639,23 +639,23 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+        <h2 className="text-2xl font-bold text-[#32303b] mb-4">
           Welcome back, {currentUser.username}!
         </h2>
         {profile && <p className="text-gray-600">Training {profile.dog_name}</p>}
       </div>
 
       <div className="grid md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow p-6">
+        <div className="bg-gradient-to-br from-[#32303b] to-[#43414d] text-white rounded-lg shadow-lg p-6 border-2 border-[#dcac6e]">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm opacity-90">Current Grade</span>
-            <Award className="w-6 h-6" />
+            <Award className="w-6 h-6 text-[#dcac6e]" />
           </div>
           <p className="text-4xl font-bold">Grade {currentGrade}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow p-6">
+        <div className="bg-gradient-to-br from-[#dcac6e] to-[#c49654] text-[#32303b] rounded-lg shadow-lg p-6 border-2 border-[#c49654]">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm opacity-90">Points Progress</span>
             <Star className="w-6 h-6" />
@@ -663,29 +663,29 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
           <p className="text-4xl font-bold">{progress.totalPoints} / {gradeReq}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow p-6">
+        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white rounded-lg shadow-lg p-6 border-2 border-[#dcac6e]">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm opacity-90">Sections Complete</span>
-            <Book className="w-6 h-6" />
+            <Book className="w-6 h-6 text-[#dcac6e]" />
           </div>
           <p className="text-4xl font-bold">{progress.sectionsWithSkills.length} / 6</p>
         </div>
       </div>
 
       {canRequestGrade && (
-        <div className="bg-green-50 border-2 border-green-300 rounded-lg p-6">
+        <div className="bg-[#dcac6e] bg-opacity-20 border-2 border-[#dcac6e] rounded-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-green-800 mb-2">
+              <h3 className="text-lg font-bold text-[#32303b] mb-2">
                 Ready for Grade {currentGrade}!
               </h3>
-              <p className="text-green-700 text-sm">
+              <p className="text-[#32303b] text-sm">
                 You've earned {progress.totalPoints} points (required: {gradeReq}). Request approval from your trainer.
               </p>
             </div>
             <button
               onClick={() => setShowRequestModal(true)}
-              className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition font-medium"
+              className="bg-[#32303b] text-white px-6 py-3 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium shadow-lg"
             >
               Request Grade Approval
             </button>
@@ -701,8 +701,8 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Section Progress</h3>
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+        <h3 className="text-xl font-bold text-[#32303b] mb-4">Section Progress</h3>
         <div className="space-y-4">
           {sections.filter(s => s.active).map(section => {
             const sectionPoints = progress.sectionPoints[section.id] || 0;
@@ -710,14 +710,16 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
             return (
               <div key={section.id}>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-gray-700">{section.name}</span>
+                  <span className="font-medium text-[#32303b]">{section.name}</span>
                   <span className="text-sm text-gray-600">
                     {sectionPoints} pts {hasSkill ? '✓' : ''}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="w-full bg-gray-200 rounded-full h-3 border border-gray-300">
                   <div
-                    className={`h-2 rounded-full ${hasSkill ? 'bg-green-500' : 'bg-gray-400'}`}
+                    className={`h-3 rounded-full transition-all ${
+                      hasSkill ? 'bg-gradient-to-r from-[#32303b] to-[#dcac6e]' : 'bg-gray-400'
+                    }`}
                     style={{ width: `${Math.min((sectionPoints / 20) * 100, 100)}%` }}
                   />
                 </div>
@@ -729,8 +731,8 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
 
       {showRequestModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Request Grade {currentGrade} Approval</h3>
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-[#dcac6e]">
+            <h3 className="text-xl font-bold text-[#32303b] mb-4">Request Grade {currentGrade} Approval</h3>
             <p className="text-gray-600 mb-4">
               You've completed all requirements for Grade {currentGrade}:
             </p>
@@ -746,7 +748,7 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
             <div className="flex space-x-3">
               <button
                 onClick={handleRequestGrade}
-                className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
+                className="flex-1 bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition"
               >
                 Submit Request
               </button>
@@ -799,8 +801,8 @@ function TrainerAdminDashboard({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+        <h2 className="text-2xl font-bold text-[#32303b] mb-2">
           {currentUser.role === 'admin' ? 'Training Overview' : 'My Classes'}
         </h2>
         <p className="text-gray-600">
@@ -809,23 +811,23 @@ function TrainerAdminDashboard({
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow p-4">
+        <div className="bg-gradient-to-br from-[#32303b] to-[#43414d] text-white rounded-lg shadow-lg p-4 border-2 border-[#dcac6e]">
           <div className="flex items-center justify-between mb-2">
-            <User className="w-6 h-6 opacity-80" />
+            <User className="w-6 h-6 text-[#dcac6e]" />
           </div>
           <p className="text-3xl font-bold">{totalStudents}</p>
           <p className="text-sm opacity-90">Total Students</p>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow p-4">
+        <div className="bg-gradient-to-br from-[#dcac6e] to-[#c49654] text-[#32303b] rounded-lg shadow-lg p-4 border-2 border-[#c49654]">
           <div className="flex items-center justify-between mb-2">
-            <Book className="w-6 h-6 opacity-80" />
+            <Book className="w-6 h-6" />
           </div>
           <p className="text-3xl font-bold">{classData?.classes.length || 0}</p>
           <p className="text-sm opacity-90">Classes</p>
         </div>
 
-        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg shadow p-4">
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg shadow-lg p-4 border-2 border-orange-700">
           <div className="flex items-center justify-between mb-2">
             <Clock className="w-6 h-6 opacity-80" />
           </div>
@@ -833,7 +835,7 @@ function TrainerAdminDashboard({
           <p className="text-sm opacity-90">Pending Reviews</p>
         </div>
 
-        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow p-4">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow-lg p-4 border-2 border-green-700">
           <div className="flex items-center justify-between mb-2">
             <Award className="w-6 h-6 opacity-80" />
           </div>
@@ -843,16 +845,16 @@ function TrainerAdminDashboard({
       </div>
 
       {classData && classData.classes && classData.classes.length > 0 ? (
-        <div className="bg-white rounded-lg shadow">
-          <div className="border-b flex overflow-x-auto">
+        <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e]">
+          <div className="border-b border-[#dcac6e] flex overflow-x-auto">
             {classData.classes.map(cls => (
               <button
                 key={cls.id}
                 onClick={() => setSelectedClass(cls)}
                 className={`px-6 py-4 whitespace-nowrap font-medium transition ${
                   selectedClass?.id === cls.id
-                    ? 'border-b-2 border-blue-600 text-blue-600'
-                    : 'text-gray-600 hover:text-gray-800'
+                    ? 'border-b-4 border-[#32303b] text-[#32303b] bg-[#dcac6e] bg-opacity-10'
+                    : 'text-gray-600 hover:bg-gray-50'
                 }`}
               >
                 <div className="text-left">
@@ -868,31 +870,31 @@ function TrainerAdminDashboard({
           {selectedClass && (
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
-                <h3 className="text-lg font-bold text-gray-800">
+                <h3 className="text-lg font-bold text-[#32303b]">
                   {selectedClass.name} - Top Performers
                 </h3>
               </div>
               
               {getTopStudents(selectedClass).length > 0 && (
-                <div className="mb-6 bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-4">
+                <div className="mb-6 bg-gradient-to-br from-amber-50 to-yellow-50 border-2 border-[#dcac6e] rounded-lg p-4">
                   <div className="flex items-center space-x-2 mb-3">
-                    <Trophy className="w-5 h-5 text-amber-600" />
-                    <h4 className="font-bold text-gray-800">Class Leaders</h4>
+                    <Trophy className="w-5 h-5 text-[#dcac6e]" />
+                    <h4 className="font-bold text-[#32303b]">Class Leaders</h4>
                   </div>
                   <div className="space-y-2">
                     {getTopStudents(selectedClass).map((student, idx) => (
-                      <div key={student.user_id} className="flex items-center space-x-3 bg-white rounded p-2">
+                      <div key={student.user_id} className="flex items-center space-x-3 bg-white rounded p-2 border border-[#dcac6e]">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
-                          idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-700' : 'bg-gray-300'
+                          idx === 0 ? 'bg-[#dcac6e]' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-[#b8935d]' : 'bg-gray-300'
                         }`}>
                           {idx + 1}
                         </div>
                         <div className="flex-1">
-                          <p className="font-medium text-gray-800">{student.dog_name}</p>
+                          <p className="font-medium text-[#32303b]">{student.dog_name}</p>
                           <p className="text-xs text-gray-500">{student.owners}</p>
                         </div>
                         <div className="text-right">
-                          <p className="font-bold text-blue-600">Grade {student.progress?.current_grade || 0}</p>
+                          <p className="font-bold text-[#32303b]">Grade {student.progress?.current_grade || 0}</p>
                           <p className="text-xs text-gray-500">{student.progress?.total_points || 0} pts</p>
                         </div>
                       </div>
@@ -901,7 +903,7 @@ function TrainerAdminDashboard({
                 </div>
               )}
 
-              <h4 className="font-bold text-gray-700 mb-3">Full Roster</h4>
+              <h4 className="font-bold text-[#32303b] mb-3">Full Roster</h4>
               {selectedClass.students && selectedClass.students.length > 0 ? (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {selectedClass.students.map(student => (
@@ -921,7 +923,7 @@ function TrainerAdminDashboard({
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow p-8 text-center">
+        <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-8 text-center">
           <p className="text-gray-600 mb-2">
             {currentUser.role === 'admin' 
               ? 'No classes have been created yet.' 
@@ -950,15 +952,15 @@ function TrainerStudentCard({ student, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 hover:shadow-lg transition text-left w-full"
+      className="bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-[#dcac6e] rounded-lg p-4 hover:shadow-lg hover:border-[#32303b] transition text-left w-full"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h4 className="font-bold text-gray-800 text-lg">{student.dog_name}</h4>
+          <h4 className="font-bold text-[#32303b] text-lg">{student.dog_name}</h4>
           <p className="text-sm text-gray-600">{student.owners}</p>
         </div>
         <div className="text-right">
-          <div className="text-2xl font-bold text-blue-600">
+          <div className="text-2xl font-bold text-[#32303b]">
             {currentGrade > 0 ? currentGrade : '-'}
           </div>
           <div className="text-xs text-gray-500">Grade</div>
@@ -977,7 +979,7 @@ function TrainerStudentCard({ student, onClick }) {
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all ${
-              canCertify ? 'bg-green-500' : 'bg-blue-500'
+              canCertify ? 'bg-gradient-to-r from-[#32303b] to-[#dcac6e]' : 'bg-[#32303b]'
             }`}
             style={{ width: `${progressPercent}%` }}
           />
@@ -985,24 +987,24 @@ function TrainerStudentCard({ student, onClick }) {
       </div>
 
       <div className="grid grid-cols-2 gap-2 text-center text-xs mb-3">
-        <div className="bg-white rounded p-2">
+        <div className="bg-white rounded p-2 border border-gray-200">
           <div className="font-bold text-purple-600">{progress.sections_with_skills || 0}/6</div>
           <div className="text-gray-600">Sections</div>
         </div>
-        <div className="bg-white rounded p-2">
+        <div className="bg-white rounded p-2 border border-gray-200">
           <div className="font-bold text-orange-600">{student.pending_submissions || 0}</div>
           <div className="text-gray-600">Pending</div>
         </div>
       </div>
 
       {canCertify && (
-        <div className="bg-green-100 border border-green-300 rounded px-3 py-2 flex items-center justify-between">
-          <span className="text-xs font-medium text-green-800">Ready for Certificate</span>
-          <Award className="w-4 h-4 text-green-600" />
+        <div className="bg-[#dcac6e] bg-opacity-20 border border-[#dcac6e] rounded px-3 py-2 flex items-center justify-between">
+          <span className="text-xs font-medium text-[#32303b]">Ready for Certificate</span>
+          <Award className="w-4 h-4 text-[#32303b]" />
         </div>
       )}
 
-      <div className="mt-3 flex items-center justify-end text-blue-600">
+      <div className="mt-3 flex items-center justify-end text-[#32303b]">
         <span className="text-xs font-medium">View Details</span>
         <ChevronRight className="w-4 h-4 ml-1" />
       </div>
@@ -1091,7 +1093,7 @@ function StudentDetailView({ student, onBack }) {
             <button
               onClick={handleBulkApprove}
               disabled={approving}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center space-x-2"
+              className="px-4 py-2 bg-[#32303b] text-white rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition disabled:opacity-50 flex items-center space-x-2"
             >
               <Check className="w-4 h-4" />
               <span>Approve {selectedSkills.length} Skills</span>
@@ -1105,7 +1107,7 @@ function StudentDetailView({ student, onBack }) {
             className={`px-4 py-2 rounded-lg transition ${
               multiSelectMode 
                 ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                : 'bg-[#dcac6e] text-[#32303b] hover:bg-[#c49654]'
             }`}
           >
             {multiSelectMode ? 'Cancel Multi-Select' : 'Multi-Select Mode'}
@@ -1113,30 +1115,30 @@ function StudentDetailView({ student, onBack }) {
         </div>
       </div>
 
-      <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-lg p-6">
+      <div className="bg-gradient-to-br from-[#32303b] to-[#43414d] text-white rounded-lg shadow-lg p-6 border-2 border-[#dcac6e]">
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-3xl font-bold mb-2">{student.dog_name}</h2>
-            <p className="text-blue-100 mb-1">Owner: {student.owners}</p>
-            <p className="text-blue-100 mb-1">Email: {student.email}</p>
-            <p className="text-blue-100">Class: {student.class_name}</p>
+            <p className="text-[#dcac6e] mb-1">Owner: {student.owners}</p>
+            <p className="text-[#dcac6e] mb-1">Email: {student.email}</p>
+            <p className="text-[#dcac6e]">Class: {student.class_name}</p>
           </div>
-          <div className="text-center bg-white/20 rounded-lg px-6 py-4">
+          <div className="text-center bg-[#dcac6e] bg-opacity-20 rounded-lg px-6 py-4 border-2 border-[#dcac6e]">
             <div className="text-4xl font-bold">{student.current_grade || 0}</div>
             <div className="text-sm opacity-90">Current Grade</div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
-        <h3 className="font-bold text-gray-800 mb-3">Progress Summary</h3>
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-4">
+        <h3 className="font-bold text-[#32303b] mb-3">Progress Summary</h3>
         <div className="grid grid-cols-3 gap-4 text-center">
           <div>
-            <div className="text-2xl font-bold text-blue-600">{student.progress?.total_points || 0}</div>
+            <div className="text-2xl font-bold text-[#32303b]">{student.progress?.total_points || 0}</div>
             <div className="text-sm text-gray-600">Total Points</div>
           </div>
           <div>
-            <div className="text-2xl font-bold text-purple-600">{student.progress?.sections_with_skills || 0}/6</div>
+            <div className="text-2xl font-bold text-[#dcac6e]">{student.progress?.sections_with_skills || 0}/6</div>
             <div className="text-sm text-gray-600">Sections</div>
           </div>
           <div>
@@ -1150,16 +1152,16 @@ function StudentDetailView({ student, onBack }) {
       </div>
 
       {multiSelectMode && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800 font-medium">
+        <div className="bg-[#dcac6e] bg-opacity-20 border-2 border-[#dcac6e] rounded-lg p-4">
+          <p className="text-sm text-[#32303b] font-medium">
             Multi-Select Mode Active - Click skills to select/deselect, then approve all at once
           </p>
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h3 className="text-xl font-bold text-gray-800">Skill Progress</h3>
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e]">
+        <div className="p-6 border-b border-[#dcac6e]">
+          <h3 className="text-xl font-bold text-[#32303b]">Skill Progress</h3>
           <p className="text-sm text-gray-600 mt-1">
             {multiSelectMode ? 'Select multiple skills to approve' : 'Click any available skill to mark as complete'}
           </p>
@@ -1174,8 +1176,8 @@ function StudentDetailView({ student, onBack }) {
               className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition"
             >
               <div className="flex items-center space-x-3">
-                <Book className="w-5 h-5 text-gray-600" />
-                <span className="font-bold text-gray-800">{section.name}</span>
+                <Book className="w-5 h-5 text-[#32303b]" />
+                <span className="font-bold text-[#32303b]">{section.name}</span>
                 <span className="text-sm text-gray-500">
                   ({section.skills.filter(s => s.status === 'completed').length}/{section.skills.length} completed)
                 </span>
@@ -1206,13 +1208,13 @@ function StudentDetailView({ student, onBack }) {
       </div>
 
       {student.recent_activity && student.recent_activity.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Activity</h3>
+        <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+          <h3 className="text-lg font-bold text-[#32303b] mb-4">Recent Activity</h3>
           <div className="space-y-3">
             {student.recent_activity.map((activity, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded border border-gray-200">
                 <div>
-                  <p className="font-medium text-gray-800">{activity.skill}</p>
+                  <p className="font-medium text-[#32303b]">{activity.skill}</p>
                   <p className="text-sm text-gray-600">by {activity.trainer}</p>
                 </div>
                 <div className="text-right">
@@ -1243,9 +1245,9 @@ function TrainerSkillCard({ skill, onClick, multiSelectMode = false, isSelected 
       text: 'Completed'
     },
     pending: {
-      bg: 'bg-yellow-50 border-yellow-300',
+      bg: 'bg-[#dcac6e] bg-opacity-10 border-[#dcac6e]',
       icon: Clock,
-      iconColor: 'text-yellow-600',
+      iconColor: 'text-[#dcac6e]',
       text: 'Pending Review'
     },
     available: {
@@ -1271,8 +1273,8 @@ function TrainerSkillCard({ skill, onClick, multiSelectMode = false, isSelected 
     <button
       onClick={handleClick}
       disabled={!multiSelectMode && skill.status === 'completed'}
-      className={`${config.bg} ${isSelected ? 'ring-2 ring-blue-500' : ''} border-2 rounded-lg p-3 text-left hover:shadow-md transition ${
-        skill.status === 'completed' && !multiSelectMode ? 'cursor-default opacity-75' : 'cursor-pointer hover:border-blue-400'
+      className={`${config.bg} ${isSelected ? 'ring-2 ring-[#32303b]' : ''} border-2 rounded-lg p-3 text-left hover:shadow-md transition ${
+        skill.status === 'completed' && !multiSelectMode ? 'cursor-default opacity-75' : 'cursor-pointer hover:border-[#32303b]'
       }`}
     >
       <div className="flex items-start justify-between mb-2">
@@ -1280,13 +1282,13 @@ function TrainerSkillCard({ skill, onClick, multiSelectMode = false, isSelected 
           {multiSelectMode && skill.status !== 'completed' && (
             <div>
               {isSelected ? (
-                <CheckSquare className="w-5 h-5 text-blue-600" />
+                <CheckSquare className="w-5 h-5 text-[#32303b]" />
               ) : (
                 <Square className="w-5 h-5 text-gray-400" />
               )}
             </div>
           )}
-          <h4 className="font-bold text-gray-800 text-sm flex-1">{skill.title}</h4>
+          <h4 className="font-bold text-[#32303b] text-sm flex-1">{skill.title}</h4>
         </div>
         {Icon && !multiSelectMode && <Icon className={`w-4 h-4 ${config.iconColor} flex-shrink-0 ml-2`} />}
       </div>
@@ -1295,7 +1297,7 @@ function TrainerSkillCard({ skill, onClick, multiSelectMode = false, isSelected 
           <span className="text-xs bg-gray-200 px-2 py-1 rounded">
             {'⭐'.repeat(skill.difficulty)}
           </span>
-          <span className="text-sm font-bold text-blue-600">{skill.points} pts</span>
+          <span className="text-sm font-bold text-[#32303b]">{skill.points} pts</span>
         </div>
         <span className="text-xs text-gray-500">{config.text}</span>
       </div>
@@ -1306,8 +1308,8 @@ function TrainerSkillCard({ skill, onClick, multiSelectMode = false, isSelected 
 // ============= MY CLASSES VIEW (Placeholder) =============
 function MyClassesView() {
   return (
-    <div className="bg-white rounded-lg shadow p-8 text-center">
-      <h2 className="text-2xl font-bold text-gray-800 mb-4">My Classes</h2>
+    <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-8 text-center">
+      <h2 className="text-2xl font-bold text-[#32303b] mb-4">My Classes</h2>
       <p className="text-gray-600">Class management view - Coming soon</p>
     </div>
   );
@@ -1390,13 +1392,13 @@ function LeaderboardView() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">Leaderboard</h2>
+            <h2 className="text-2xl font-bold text-[#32303b]">Leaderboard</h2>
             <p className="text-gray-600">Top performing students</p>
           </div>
-          <Trophy className="w-12 h-12 text-amber-500" />
+          <Trophy className="w-12 h-12 text-[#dcac6e]" />
         </div>
       </div>
 
@@ -1405,8 +1407,8 @@ function LeaderboardView() {
           onClick={() => setSelectedView('overall')}
           className={`px-4 py-2 rounded-lg font-medium transition ${
             selectedView === 'overall'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-[#32303b] text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-[#dcac6e] hover:bg-opacity-20'
           }`}
         >
           Overall
@@ -1415,8 +1417,8 @@ function LeaderboardView() {
           onClick={() => setSelectedView('class')}
           className={`px-4 py-2 rounded-lg font-medium transition ${
             selectedView === 'class'
-              ? 'bg-blue-600 text-white'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-[#32303b] text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-[#dcac6e] hover:bg-opacity-20'
           }`}
         >
           By Class
@@ -1424,15 +1426,15 @@ function LeaderboardView() {
       </div>
 
       {selectedView === 'class' && classData && classData.classes && (
-        <div className="bg-white rounded-lg shadow p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+        <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-4">
+          <label className="block text-sm font-medium text-[#32303b] mb-2">Select Class</label>
           <select
             value={selectedClass?.id || ''}
             onChange={(e) => {
               const cls = classData.classes.find(c => c.id === parseInt(e.target.value));
               setSelectedClass(cls);
             }}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
           >
             {classData.classes.map(cls => (
               <option key={cls.id} value={cls.id}>
@@ -1443,9 +1445,9 @@ function LeaderboardView() {
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <h3 className="text-xl font-bold text-gray-800">
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e]">
+        <div className="p-6 border-b border-[#dcac6e]">
+          <h3 className="text-xl font-bold text-[#32303b]">
             {selectedView === 'overall' ? 'Overall Rankings' : `${selectedClass?.name || 'Class'} Rankings`}
           </h3>
           <p className="text-sm text-gray-600 mt-1">
@@ -1476,14 +1478,14 @@ function LeaderboardRow({ student, rank, showClass }) {
   const totalPoints = progress.total_points || 0;
   
   const medalColors = {
-    1: 'bg-gradient-to-br from-amber-400 to-amber-600',
-    2: 'bg-gradient-to-br from-gray-300 to-gray-500',
-    3: 'bg-gradient-to-br from-amber-600 to-amber-800'
+    1: 'bg-gradient-to-br from-[#dcac6e] to-[#c49654] border-2 border-[#b8935d]',
+    2: 'bg-gradient-to-br from-gray-300 to-gray-500 border-2 border-gray-600',
+    3: 'bg-gradient-to-br from-[#b8935d] to-[#8b6f45] border-2 border-[#6d5436]'
   };
 
   return (
     <div className={`flex items-center space-x-4 p-4 rounded-lg ${
-      rank <= 3 ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200' : 'bg-gray-50 border border-gray-200'
+      rank <= 3 ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-[#dcac6e]' : 'bg-gray-50 border-2 border-gray-200'
     }`}>
       <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-lg ${
         medalColors[rank] || 'bg-gray-400'
@@ -1493,20 +1495,20 @@ function LeaderboardRow({ student, rank, showClass }) {
       
       <div className="flex-1">
         <div className="flex items-center space-x-2">
-          <h4 className="font-bold text-gray-800">{student.dog_name}</h4>
-          {rank === 1 && <span className="text-xs bg-amber-500 text-white px-2 py-1 rounded-full font-medium">Champion</span>}
+          <h4 className="font-bold text-[#32303b]">{student.dog_name}</h4>
+          {rank === 1 && <span className="text-xs bg-[#dcac6e] text-[#32303b] px-2 py-1 rounded-full font-medium">Champion</span>}
         </div>
         <p className="text-sm text-gray-600">{student.owners}</p>
         {showClass && <p className="text-xs text-gray-500">{student.class_name}</p>}
       </div>
 
       <div className="text-center px-4">
-        <div className="text-2xl font-bold text-blue-600">{currentGrade}</div>
+        <div className="text-2xl font-bold text-[#32303b]">{currentGrade}</div>
         <div className="text-xs text-gray-500">Grade</div>
       </div>
 
       <div className="text-center px-4">
-        <div className="text-lg font-bold text-purple-600">{totalPoints}</div>
+        <div className="text-lg font-bold text-[#dcac6e]">{totalPoints}</div>
         <div className="text-xs text-gray-500">Points</div>
       </div>
 
@@ -1525,7 +1527,7 @@ function SectionsView() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Skills & Sections</h2>
+      <h2 className="text-2xl font-bold text-[#32303b]">Skills & Sections</h2>
       
       {!selectedSection ? (
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1533,9 +1535,9 @@ function SectionsView() {
             <button
               key={section.id}
               onClick={() => setSelectedSection(section)}
-              className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition text-left"
+              className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6 hover:shadow-xl hover:border-[#32303b] transition text-left"
             >
-              <h3 className="text-xl font-bold text-gray-800 mb-2">{section.name}</h3>
+              <h3 className="text-xl font-bold text-[#32303b] mb-2">{section.name}</h3>
               <p className="text-gray-600 mb-4">{section.description}</p>
             </button>
           ))}
@@ -1615,19 +1617,19 @@ function SectionDetail({ section, onBack }) {
           ← Back
         </button>
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">{section.name}</h2>
+          <h2 className="text-2xl font-bold text-[#32303b]">{section.name}</h2>
           <p className="text-gray-600">{section.description}</p>
         </div>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
         <p className="text-sm text-yellow-800">
           Unless stated otherwise, food/toys only as a reward, not as a lure or encouragement.
         </p>
       </div>
 
       {sectionSkills.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+        <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-8 text-center text-gray-500">
           No skills found in this section.
         </div>
       ) : (
@@ -1636,8 +1638,8 @@ function SectionDetail({ section, onBack }) {
             const status = getSkillStatus(skill.id);
             const statusColors = {
               completed: 'border-green-500 bg-green-50',
-              requested: 'border-yellow-500 bg-yellow-50',
-              submitted: 'border-blue-500 bg-blue-50',
+              requested: 'border-[#dcac6e] bg-[#dcac6e] bg-opacity-10',
+              submitted: 'border-[#32303b] bg-[#32303b] bg-opacity-5',
               available: 'border-gray-200 bg-white'
             };
             
@@ -1645,15 +1647,15 @@ function SectionDetail({ section, onBack }) {
               <div
                 key={skill.id}
                 className={`border-2 rounded-lg p-4 ${statusColors[status]} ${
-                  currentUser.role === 'member' ? 'cursor-pointer hover:shadow-lg' : ''
+                  currentUser.role === 'member' ? 'cursor-pointer hover:shadow-lg hover:border-[#32303b]' : ''
                 } transition`}
                 onClick={() => currentUser.role === 'member' && setSelectedSkill(skill)}
               >
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-gray-800">{skill.title}</h3>
+                  <h3 className="font-bold text-[#32303b]">{skill.title}</h3>
                   {status === 'completed' && <Check className="w-5 h-5 text-green-600" />}
-                  {status === 'requested' && <Clock className="w-5 h-5 text-yellow-600" />}
-                  {status === 'submitted' && <Upload className="w-5 h-5 text-blue-600" />}
+                  {status === 'requested' && <Clock className="w-5 h-5 text-[#dcac6e]" />}
+                  {status === 'submitted' && <Upload className="w-5 h-5 text-[#32303b]" />}
                 </div>
                 <p className="text-sm text-gray-600 mb-3">{skill.description}</p>
                 <div className="flex items-center justify-between">
@@ -1661,7 +1663,7 @@ function SectionDetail({ section, onBack }) {
                     <span className="text-xs bg-gray-200 px-2 py-1 rounded">
                       {'⭐'.repeat(skill.difficulty)}
                     </span>
-                    <span className="text-sm font-bold text-blue-600">{skill.points} pts</span>
+                    <span className="text-sm font-bold text-[#32303b]">{skill.points} pts</span>
                   </div>
                   {currentUser.role === 'member' && (
                     <span className="text-xs text-gray-500 capitalize">{status}</span>
@@ -1716,19 +1718,19 @@ function SkillSubmissionModal({ skill, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Submit: {skill.title}</h3>
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-[#dcac6e]">
+        <h3 className="text-xl font-bold text-[#32303b] mb-4">Submit: {skill.title}</h3>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Submission Type</label>
+            <label className="block text-sm font-medium text-[#32303b] mb-2">Submission Type</label>
             <div className="space-y-2">
               <label className="flex items-center space-x-2 cursor-pointer">
                 <input
                   type="radio"
                   checked={mode === 'class_request'}
                   onChange={() => setMode('class_request')}
-                  className="w-4 h-4"
+                  className="w-4 h-4 accent-[#32303b]"
                 />
                 <span>Request Class Assessment</span>
               </label>
@@ -1737,7 +1739,7 @@ function SkillSubmissionModal({ skill, onClose }) {
                   type="radio"
                   checked={mode === 'home_video'}
                   onChange={() => setMode('home_video')}
-                  className="w-4 h-4"
+                  className="w-4 h-4 accent-[#32303b]"
                 />
                 <span>Submit Home Video</span>
               </label>
@@ -1746,25 +1748,25 @@ function SkillSubmissionModal({ skill, onClose }) {
 
           {mode === 'home_video' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#32303b] mb-1">
                 Video URL or Description
               </label>
               <input
                 type="text"
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
                 placeholder="YouTube link or description"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-[#32303b] mb-1">Notes</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              className="w-full px-3 py-2 border rounded-lg h-24"
+              className="w-full px-3 py-2 border-2 border-[#dcac6e] rounded-lg h-24 focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
               placeholder="Any additional information..."
             />
           </div>
@@ -1773,7 +1775,7 @@ function SkillSubmissionModal({ skill, onClose }) {
             <button
               onClick={handleSubmit}
               disabled={submitting}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+              className="flex-1 bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition disabled:opacity-50"
             >
               {submitting ? 'Submitting...' : 'Submit'}
             </button>
@@ -1844,16 +1846,16 @@ function TrainerInbox() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Trainer Inbox</h2>
+        <h2 className="text-2xl font-bold text-[#32303b]">Trainer Inbox</h2>
         <div className="flex space-x-2">
           {['all', 'pending', 'approved', 'rejected'].map(f => (
             <button
               key={f}
               onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg capitalize transition ${
+              className={`px-4 py-2 rounded-lg capitalize transition font-medium border-2 ${
                 filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  ? 'bg-[#32303b] text-white border-[#dcac6e]'
+                  : 'bg-gray-200 text-gray-700 hover:bg-[#dcac6e] hover:bg-opacity-20 border-transparent'
               }`}
             >
               {f}
@@ -1864,7 +1866,7 @@ function TrainerInbox() {
 
       <div className="space-y-4">
         {submissions.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-8 text-center text-gray-500">
             No submissions found
           </div>
         ) : (
@@ -1886,8 +1888,8 @@ function SubmissionCard({ submission, onDecision }) {
   const [showDecision, setShowDecision] = useState(false);
 
   const statusColors = {
-    requested: 'bg-yellow-50 border-yellow-300',
-    submitted: 'bg-blue-50 border-blue-300',
+    requested: 'bg-[#dcac6e] bg-opacity-10 border-[#dcac6e]',
+    submitted: 'bg-[#32303b] bg-opacity-5 border-[#32303b]',
     approved: 'bg-green-50 border-green-300',
     rejected: 'bg-red-50 border-red-300'
   };
@@ -1896,7 +1898,7 @@ function SubmissionCard({ submission, onDecision }) {
     <div className={`border-2 rounded-lg p-6 ${statusColors[submission.status]}`}>
       <div className="flex justify-between items-start mb-4">
         <div>
-          <h3 className="text-lg font-bold text-gray-800">
+          <h3 className="text-lg font-bold text-[#32303b]">
             {submission.member_name} - {submission.skill_title}
           </h3>
           <p className="text-sm text-gray-600">{submission.section_name} • {submission.skill_points} points</p>
@@ -1907,8 +1909,8 @@ function SubmissionCard({ submission, onDecision }) {
         <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
           submission.status === 'approved' ? 'bg-green-200 text-green-800' :
           submission.status === 'rejected' ? 'bg-red-200 text-red-800' :
-          submission.status === 'submitted' ? 'bg-blue-200 text-blue-800' :
-          'bg-yellow-200 text-yellow-800'
+          submission.status === 'submitted' ? 'bg-[#32303b] text-white' :
+          'bg-[#dcac6e] text-[#32303b]'
         }`}>
           {submission.status}
         </span>
@@ -1916,27 +1918,27 @@ function SubmissionCard({ submission, onDecision }) {
 
       <div className="space-y-3">
         <div>
-          <p className="text-sm font-medium text-gray-700">Type:</p>
+          <p className="text-sm font-medium text-[#32303b]">Type:</p>
           <p className="text-sm text-gray-600 capitalize">{submission.mode.replace('_', ' ')}</p>
         </div>
 
         {submission.video_url && (
           <div>
-            <p className="text-sm font-medium text-gray-700">Video:</p>
-            <p className="text-sm text-blue-600">{submission.video_url}</p>
+            <p className="text-sm font-medium text-[#32303b]">Video:</p>
+            <p className="text-sm text-[#32303b] underline">{submission.video_url}</p>
           </div>
         )}
 
         {submission.member_notes && (
           <div>
-            <p className="text-sm font-medium text-gray-700">Member Notes:</p>
+            <p className="text-sm font-medium text-[#32303b]">Member Notes:</p>
             <p className="text-sm text-gray-600">{submission.member_notes}</p>
           </div>
         )}
 
         {submission.trainer_notes && (
           <div>
-            <p className="text-sm font-medium text-gray-700">Trainer Notes:</p>
+            <p className="text-sm font-medium text-[#32303b]">Trainer Notes:</p>
             <p className="text-sm text-gray-600">{submission.trainer_notes}</p>
           </div>
         )}
@@ -1946,16 +1948,16 @@ function SubmissionCard({ submission, onDecision }) {
             {!showDecision ? (
               <button
                 onClick={() => setShowDecision(true)}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
+                className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition"
               >
                 Review & Decide
               </button>
             ) : (
-              <div className="space-y-3 pt-4 border-t">
+              <div className="space-y-3 pt-4 border-t-2 border-gray-200">
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg h-20"
+                  className="w-full px-3 py-2 border-2 border-[#dcac6e] rounded-lg h-20 focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
                   placeholder="Trainer feedback..."
                 />
                 <div className="flex space-x-3">
@@ -2039,7 +2041,7 @@ function CertificatesView() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Certificates</h2>
+      <h2 className="text-2xl font-bold text-[#32303b]">Certificates</h2>
 
       <div className="grid md:grid-cols-2 gap-6">
         {certificates.map(cert => (
@@ -2047,7 +2049,7 @@ function CertificatesView() {
         ))}
         
         {certificates.length === 0 && (
-          <div className="col-span-2 bg-white rounded-lg shadow p-8 text-center text-gray-500">
+          <div className="col-span-2 bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-8 text-center text-gray-500">
             No certificates yet. Keep training to earn your first grade!
           </div>
         )}
@@ -2062,7 +2064,7 @@ function CertificatesView() {
 
 function CertificateCard({ certificate, profile }) {
   const statusColors = {
-    pending: 'border-yellow-300 bg-yellow-50',
+    pending: 'border-[#dcac6e] bg-[#dcac6e] bg-opacity-10',
     approved: 'border-green-300 bg-green-50'
   };
 
@@ -2070,10 +2072,10 @@ function CertificateCard({ certificate, profile }) {
     <div className={`border-2 rounded-lg p-6 ${statusColors[certificate.status]}`}>
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h3 className="text-xl font-bold text-gray-800">Grade {certificate.grade_number}</h3>
+          <h3 className="text-xl font-bold text-[#32303b]">Grade {certificate.grade_number}</h3>
           <p className="text-sm text-gray-600">{profile?.dog_name || certificate.dog_name}</p>
         </div>
-        <Award className={`w-8 h-8 ${certificate.status === 'approved' ? 'text-green-600' : 'text-yellow-600'}`} />
+        <Award className={`w-8 h-8 ${certificate.status === 'approved' ? 'text-green-600' : 'text-[#dcac6e]'}`} />
       </div>
       
       <div className="space-y-2 text-sm">
@@ -2093,7 +2095,7 @@ function CertificateCard({ certificate, profile }) {
       </div>
 
       {certificate.status === 'approved' && (
-        <button className="mt-4 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">
+        <button className="mt-4 w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition">
           Download PDF
         </button>
       )}
@@ -2124,20 +2126,20 @@ function TrainerCertificateApprovals({ onApprove }) {
   if (loading || pendingCerts.length === 0) return null;
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-xl font-bold text-gray-800 mb-4">Pending Certificate Approvals</h3>
+    <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+      <h3 className="text-xl font-bold text-[#32303b] mb-4">Pending Certificate Approvals</h3>
       <div className="space-y-4">
         {pendingCerts.map(cert => (
-          <div key={cert.id} className="border rounded-lg p-4 flex justify-between items-center">
+          <div key={cert.id} className="border-2 border-[#dcac6e] rounded-lg p-4 flex justify-between items-center">
             <div>
-              <p className="font-bold text-gray-800">
+              <p className="font-bold text-[#32303b]">
                 {cert.dog_name} - Grade {cert.grade_number}
               </p>
               <p className="text-sm text-gray-600">{cert.member_name}</p>
             </div>
             <button
               onClick={() => onApprove(cert.id)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+              className="bg-[#32303b] text-white px-4 py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition"
             >
               Approve
             </button>
@@ -2206,37 +2208,37 @@ function ProfileView() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="bg-white rounded-lg shadow p-6 space-y-6">
-        <h2 className="text-2xl font-bold text-gray-800">Profile</h2>
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6 space-y-6">
+        <h2 className="text-2xl font-bold text-[#32303b]">Profile</h2>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Dog Name</label>
+          <label className="block text-sm font-medium text-[#32303b] mb-1">Dog Name</label>
           <input
             type="text"
             value={formData.dog_name}
             onChange={(e) => setFormData({ ...formData, dog_name: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
             placeholder="Max"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Owner(s)</label>
+          <label className="block text-sm font-medium text-[#32303b] mb-1">Owner(s)</label>
           <input
             type="text"
             value={formData.owners}
             onChange={(e) => setFormData({ ...formData, owners: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg"
+            className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
             placeholder="Sarah Johnson"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <label className="block text-sm font-medium text-[#32303b] mb-1">Notes</label>
           <textarea
             value={formData.notes}
             onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-            className="w-full px-4 py-2 border rounded-lg h-24"
+            className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg h-24 focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
             placeholder="Any important information about your dog..."
           />
         </div>
@@ -2244,7 +2246,7 @@ function ProfileView() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+          className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save Profile'}
         </button>
@@ -2259,24 +2261,24 @@ function AdminPanel() {
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">Admin Panel</h2>
+      <h2 className="text-2xl font-bold text-[#32303b]">Admin Panel</h2>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
         <p className="text-sm text-yellow-800">
           Admin panel features (skill/section/user management) will be connected to API in future update.
           For now, manage data directly in Azure SQL Database using Query Editor.
         </p>
       </div>
 
-      <div className="flex space-x-2 border-b">
+      <div className="flex space-x-2 border-b-2 border-[#dcac6e]">
         {['skills', 'sections', 'users'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
             className={`px-4 py-2 capitalize ${
               activeTab === tab
-                ? 'border-b-2 border-blue-600 text-blue-600 font-medium'
-                : 'text-gray-600 hover:text-gray-800'
+                ? 'border-b-4 border-[#32303b] text-[#32303b] font-medium'
+                : 'text-gray-600 hover:text-[#32303b]'
             }`}
           >
             {tab}
@@ -2284,7 +2286,7 @@ function AdminPanel() {
         ))}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
         <p className="text-gray-600">
           Admin CRUD operations will be implemented in a future update. 
           Currently, use Azure Portal Query Editor to manage {activeTab}.
