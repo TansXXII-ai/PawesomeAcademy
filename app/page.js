@@ -512,19 +512,16 @@ function Dashboard() {
         setProfile(profileData);
         setProgress(progressData);
       } else {
-        // FIXED: Admins see all classes, trainers see only their classes
         const [submissionsData, classesData] = await Promise.all([
           api.getSubmissions(null, null, currentUser.role === 'trainer'),
           currentUser.role === 'admin' ? api.getAllClasses() : api.getMyStudents()
         ]);
         setSubmissions(submissionsData);
         
-        // Handle different response formats
         if (currentUser.role === 'admin') {
-          // Admin gets array of classes directly
           const formattedClasses = classesData.map(cls => ({
             ...cls,
-            students: [], // We'll load students on demand
+            students: [],
             student_count: cls.member_count || 0
           }));
           setClassData({ classes: formattedClasses });
@@ -532,7 +529,6 @@ function Dashboard() {
             setSelectedClass(formattedClasses[0]);
           }
         } else {
-          // Trainer gets classes with students
           setClassData(classesData);
           if (classesData.classes && classesData.classes.length > 0) {
             setSelectedClass(classesData.classes[0]);
@@ -599,7 +595,7 @@ function Dashboard() {
   );
 }
 
-// ============= MEMBER DASHBOARD (FIXED) =============
+// ============= MEMBER DASHBOARD =============
 function MemberDashboard({ profile, progress, sections, currentUser }) {
   const { showToast } = useContext(ToastContext);
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -616,7 +612,6 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
 
   const handleRequestGrade = async () => {
     try {
-      // First achieve the grade
       const achievement = await api.achieveGrade({
         user_id: currentUser.id,
         grade_number: currentGrade,
@@ -629,7 +624,6 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         throw new Error('Unable to record grade achievement');
       }
 
-      // FIXED: Request certificate with correct parameters
       await api.requestCertificate({
         user_id: currentUser.id,
         grade_number: currentGrade
@@ -769,7 +763,6 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
     </div>
   );
 }
-
 function TrainerAdminDashboard({ 
   currentUser, 
   classData, 
@@ -1323,13 +1316,11 @@ function LeaderboardView() {
   const loadLeaderboardData = async () => {
     setLoading(true);
     try {
-      // FIXED: Admins see all classes, trainers see only their classes
       const data = currentUser.role === 'admin' 
         ? await api.getAllClasses() 
         : await api.getMyStudents();
       
       if (currentUser.role === 'admin') {
-        // Format admin data to match trainer data structure
         setClassData({ classes: data });
         if (data.length > 0) {
           setSelectedClass(data[0]);
@@ -1788,130 +1779,188 @@ function SkillSubmissionModal({ skill, onClose }) {
   );
 }
 
-// ============= MY CLASSES VIEW =============
-function MyClassesView() {
-  const { currentUser } = useContext(AppContext);
-  const [classData, setClassData] = useState(null);
-  const [selectedClass, setSelectedClass] = useState(null);
-  const [loading, setLoading] = useState(true);
+) {
+  const totalStudents = classData?.classes.reduce((sum, cls) => sum + cls.student_count, 0) || 0;
+  const pendingReviews = classData?.classes.reduce((sum, cls) => 
+    sum + (cls.students?.reduce((s, st) => s + st.pending_submissions, 0) || 0), 0
+  );
+  const readyForCert = classData?.classes.reduce((sum, cls) => 
+    sum + (cls.students?.filter(st => 
+      st.progress?.total_points >= st.progress?.points_required
+    ).length || 0), 0
+  );
 
-  useEffect(() => {
-    loadMyClasses();
-  }, []);
-
-  const loadMyClasses = async () => {
-    setLoading(true);
-    try {
-      // FIXED: Admins see all classes, trainers see only their classes
-      const data = currentUser.role === 'admin' 
-        ? await api.getAllClasses() 
-        : await api.getMyStudents();
-      
-      if (currentUser.role === 'admin') {
-        setClassData({ classes: data });
-        if (data.length > 0) {
-          setSelectedClass(data[0]);
-        }
-      } else {
-        setClassData(data);
-        if (data.classes && data.classes.length > 0) {
-          setSelectedClass(data.classes[0]);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load classes:', error);
-    } finally {
-      setLoading(false);
-    }
+  const getTopStudents = (classObj) => {
+    if (!classObj || !classObj.students) return [];
+    return [...classObj.students]
+      .sort((a, b) => {
+        const gradeA = a.progress?.current_grade || 0;
+        const gradeB = b.progress?.current_grade || 0;
+        if (gradeB !== gradeA) return gradeB - gradeA;
+        return (b.progress?.total_points || 0) - (a.progress?.total_points || 0);
+      })
+      .slice(0, 5);
   };
-
-  if (loading) {
-    return <div className="text-center py-8">Loading your classes...</div>;
-  }
-
-  if (!classData || classData.classes.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
-        <h2 className="text-2xl font-bold text-gray-800 mb-4">My Classes</h2>
-        <p className="text-gray-600">
-          {currentUser.role === 'admin' 
-            ? 'No classes have been created yet.' 
-            : 'You are not assigned to any classes yet.'}
-        </p>
-        <p className="text-sm text-gray-500 mt-2">
-          {currentUser.role === 'admin'
-            ? 'Create a class to get started.'
-            : 'Contact an administrator to be assigned to a class.'}
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-800">My Classes</h2>
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          {currentUser.role === 'admin' ? 'Training Overview' : 'My Classes'}
+        </h2>
+        <p className="text-gray-600">
+          Welcome back, {classData?.trainer_name || currentUser.username}
+        </p>
+      </div>
 
-      <div className="bg-white rounded-lg shadow">
-        <div className="border-b flex overflow-x-auto">
-          {classData.classes.map(cls => (
-            <button
-              key={cls.id}
-              onClick={() => setSelectedClass(cls)}
-              className={`px-6 py-4 whitespace-nowrap font-medium transition ${
-                selectedClass?.id === cls.id
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <div className="text-left">
-                <div>{cls.name}</div>
-                <div className="text-xs opacity-75">
-                  {cls.day_of_week} {cls.time_slot} • {cls.student_count || cls.member_count || 0} students
-                </div>
-              </div>
-            </button>
-          ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <User className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{totalStudents}</p>
+          <p className="text-sm opacity-90">Total Students</p>
         </div>
 
-        {selectedClass && (
-          <div className="p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
-              Class Roster - {selectedClass.name}
-            </h3>
-            
-            {selectedClass.students && selectedClass.students.length > 0 ? (
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {selectedClass.students.map(student => (
-                  <StudentCard key={student.user_id} student={student} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                No students enrolled in this class yet.
-              </div>
-            )}
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <Book className="w-6 h-6 opacity-80" />
           </div>
-        )}
+          <p className="text-3xl font-bold">{classData?.classes.length || 0}</p>
+          <p className="text-sm opacity-90">Classes</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <Clock className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{pendingReviews}</p>
+          <p className="text-sm opacity-90">Pending Reviews</p>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <Award className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-3xl font-bold">{readyForCert}</p>
+          <p className="text-sm opacity-90">Ready for Cert</p>
+        </div>
       </div>
+
+      {classData && classData.classes && classData.classes.length > 0 ? (
+        <div className="bg-white rounded-lg shadow">
+          <div className="border-b flex overflow-x-auto">
+            {classData.classes.map(cls => (
+              <button
+                key={cls.id}
+                onClick={() => setSelectedClass(cls)}
+                className={`px-6 py-4 whitespace-nowrap font-medium transition ${
+                  selectedClass?.id === cls.id
+                    ? 'border-b-2 border-blue-600 text-blue-600'
+                    : 'text-gray-600 hover:text-gray-800'
+                }`}
+              >
+                <div className="text-left">
+                  <div className="font-bold">{cls.name}</div>
+                  <div className="text-xs opacity-75">
+                    {cls.day_of_week} • {cls.time_slot} • {cls.student_count} students
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {selectedClass && (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-bold text-gray-800">
+                  {selectedClass.name} - Top Performers
+                </h3>
+              </div>
+              
+              {getTopStudents(selectedClass).length > 0 && (
+                <div className="mb-6 bg-gradient-to-br from-amber-50 to-yellow-50 border border-amber-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2 mb-3">
+                    <Trophy className="w-5 h-5 text-amber-600" />
+                    <h4 className="font-bold text-gray-800">Class Leaders</h4>
+                  </div>
+                  <div className="space-y-2">
+                    {getTopStudents(selectedClass).map((student, idx) => (
+                      <div key={student.user_id} className="flex items-center space-x-3 bg-white rounded p-2">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
+                          idx === 0 ? 'bg-amber-500' : idx === 1 ? 'bg-gray-400' : idx === 2 ? 'bg-amber-700' : 'bg-gray-300'
+                        }`}>
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-800">{student.dog_name}</p>
+                          <p className="text-xs text-gray-500">{student.owners}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-blue-600">Grade {student.progress?.current_grade || 0}</p>
+                          <p className="text-xs text-gray-500">{student.progress?.total_points || 0} pts</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <h4 className="font-bold text-gray-700 mb-3">Full Roster</h4>
+              {selectedClass.students && selectedClass.students.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {selectedClass.students.map(student => (
+                    <TrainerStudentCard 
+                      key={student.user_id} 
+                      student={student}
+                      onClick={() => onViewStudent(student)}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  No students enrolled in this class yet.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow p-8 text-center">
+          <p className="text-gray-600 mb-2">
+            {currentUser.role === 'admin' 
+              ? 'No classes have been created yet.' 
+              : 'You are not assigned to any classes yet.'}
+          </p>
+          <p className="text-sm text-gray-500">
+            {currentUser.role === 'admin'
+              ? 'Create a class to get started.'
+              : 'Contact an administrator to be assigned to a class.'}
+          </p>
+        </div>
+      )}
     </div>
   );
 }
 
-function StudentCard({ student }) {
-  const { setView } = useContext(AppContext);
+function TrainerStudentCard({ student, onClick }) {
   const progress = student.progress || {};
   const currentGrade = progress.current_grade || 0;
   const nextGrade = currentGrade + 1;
   const pointsRequired = progress.points_required || 20;
   const totalPoints = progress.total_points || 0;
   const progressPercent = Math.min((totalPoints / pointsRequired) * 100, 100);
+  const canCertify = progressPercent >= 100;
 
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+    <button
+      onClick={onClick}
+      className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-4 hover:shadow-lg transition text-left w-full"
+    >
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
-          <h4 className="font-bold text-gray-800">{student.dog_name || 'No dog name'}</h4>
-          <p className="text-sm text-gray-600">{student.owners || student.username}</p>
+          <h4 className="font-bold text-gray-800 text-lg">{student.dog_name}</h4>
+          <p className="text-sm text-gray-600">{student.owners}</p>
         </div>
         <div className="text-right">
           <div className="text-2xl font-bold text-blue-600">
@@ -1927,13 +1976,13 @@ function StudentCard({ student }) {
             Progress to Grade {nextGrade > 12 ? 12 : nextGrade}
           </span>
           <span className="text-xs font-medium text-gray-700">
-            {totalPoints} / {pointsRequired} pts
+            {totalPoints}/{pointsRequired}
           </span>
         </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
-            className={`h-2 rounded-full ${
-              progressPercent >= 100 ? 'bg-green-500' : 'bg-blue-500'
+            className={`h-2 rounded-full transition-all ${
+              canCertify ? 'bg-green-500' : 'bg-blue-500'
             }`}
             style={{ width: `${progressPercent}%` }}
           />
@@ -1951,262 +2000,788 @@ function StudentCard({ student }) {
         </div>
       </div>
 
-      {progressPercent >= 100 && (
-        <div className="bg-green-50 border border-green-200 rounded px-2 py-1 text-center">
-          <p className="text-xs font-medium text-green-800">Ready for Certificate!</p>
+      {canCertify && (
+        <div className="bg-green-100 border border-green-300 rounded px-3 py-2 flex items-center justify-between">
+          <span className="text-xs font-medium text-green-800">Ready for Certificate</span>
+          <Award className="w-4 h-4 text-green-600" />
+        </div>
+      )}
+
+      <div className="mt-3 flex items-center justify-end text-blue-600">
+        <span className="text-xs font-medium">View Details</span>
+        <ChevronRight className="w-4 h-4 ml-1" />
+      </div>
+    </button>
+  );
+}
+
+function StudentDetailView({ student, onBack }) {
+  const { currentUser } = useContext(AppContext);
+  const { showToast } = useContext(ToastContext);
+  const [selectedSection, setSelectedSection] = useState(null);
+  const [multiSelectMode, setMultiSelectMode] = useState(false);
+  const [selectedSkills, setSelectedSkills] = useState([]);
+  const [approving, setApproving] = useState(false);
+
+  const toggleSkillSelection = (skill) => {
+    if (skill.status === 'completed') return;
+    
+    setSelectedSkills(prev => {
+      const exists = prev.find(s => s.id === skill.id);
+      if (exists) {
+        return prev.filter(s => s.id !== skill.id);
+      } else {
+        return [...prev, skill];
+      }
+    });
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedSkills.length === 0) return;
+    
+    setApproving(true);
+    try {
+      for (const skill of selectedSkills) {
+        await api.directApproveSkill({
+          user_id: student.user_id,
+          skill_id: skill.id,
+          notes: 'Bulk approved'
+        });
+      }
+      
+      const totalPoints = selectedSkills.reduce((sum, s) => sum + s.points, 0);
+      showToast(`${selectedSkills.length} skills approved! +${totalPoints} points`, 'success');
+      setSelectedSkills([]);
+      setMultiSelectMode(false);
+      onBack();
+    } catch (error) {
+      showToast(error.message || 'Failed to approve skills', 'error');
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleSingleApprove = async (skill) => {
+    if (multiSelectMode) {
+      toggleSkillSelection(skill);
+      return;
+    }
+
+    if (skill.status === 'completed') return;
+    
+    try {
+      await api.directApproveSkill({
+        user_id: student.user_id,
+        skill_id: skill.id,
+        notes: 'Quick approved'
+      });
+      showToast(`${skill.title} approved! +${skill.points} points`, 'success');
+      onBack();
+    } catch (error) {
+      showToast(error.message || 'Failed to approve skill', 'error');
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+        >
+          ← Back to Class
+        </button>
+        <div className="flex space-x-2">
+          {multiSelectMode && selectedSkills.length > 0 && (
+            <button
+              onClick={handleBulkApprove}
+              disabled={approving}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 flex items-center space-x-2"
+            >
+              <Check className="w-4 h-4" />
+              <span>Approve {selectedSkills.length} Skills</span>
+            </button>
+          )}
+          <button
+            onClick={() => {
+              setMultiSelectMode(!multiSelectMode);
+              setSelectedSkills([]);
+            }}
+            className={`px-4 py-2 rounded-lg transition ${
+              multiSelectMode 
+                ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+            }`}
+          >
+            {multiSelectMode ? 'Cancel Multi-Select' : 'Multi-Select Mode'}
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg shadow-lg p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">{student.dog_name}</h2>
+            <p className="text-blue-100 mb-1">Owner: {student.owners}</p>
+            <p className="text-blue-100 mb-1">Email: {student.email}</p>
+            <p className="text-blue-100">Class: {student.class_name}</p>
+          </div>
+          <div className="text-center bg-white/20 rounded-lg px-6 py-4">
+            <div className="text-4xl font-bold">{student.current_grade || 0}</div>
+            <div className="text-sm opacity-90">Current Grade</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-bold text-gray-800 mb-3">Progress Summary</h3>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-blue-600">{student.progress?.total_points || 0}</div>
+            <div className="text-sm text-gray-600">Total Points</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-purple-600">{student.progress?.sections_with_skills || 0}/6</div>
+            <div className="text-sm text-gray-600">Sections</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-orange-600">
+              {student.sections?.reduce((sum, sec) => 
+                sum + sec.skills.filter(sk => sk.status === 'pending').length, 0) || 0}
+            </div>
+            <div className="text-sm text-gray-600">Pending</div>
+          </div>
+        </div>
+      </div>
+
+      {multiSelectMode && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <p className="text-sm text-blue-800 font-medium">
+            Multi-Select Mode Active - Click skills to select/deselect, then approve all at once
+          </p>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b">
+          <h3 className="text-xl font-bold text-gray-800">Skill Progress</h3>
+          <p className="text-sm text-gray-600 mt-1">
+            {multiSelectMode ? 'Select multiple skills to approve' : 'Click any available skill to mark as complete'}
+          </p>
+        </div>
+
+        {student.sections?.map(section => (
+          <div key={section.id} className="border-b last:border-b-0">
+            <button
+              onClick={() => setSelectedSection(
+                selectedSection === section.id ? null : section.id
+              )}
+              className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition"
+            >
+              <div className="flex items-center space-x-3">
+                <Book className="w-5 h-5 text-gray-600" />
+                <span className="font-bold text-gray-800">{section.name}</span>
+                <span className="text-sm text-gray-500">
+                  ({section.skills.filter(s => s.status === 'completed').length}/{section.skills.length} completed)
+                </span>
+              </div>
+              <ChevronRight className={`w-5 h-5 text-gray-400 transition-transform ${
+                selectedSection === section.id ? 'rotate-90' : ''
+              }`} />
+            </button>
+
+            {selectedSection === section.id && (
+              <div className="px-6 pb-4 bg-gray-50">
+                <div className="grid md:grid-cols-2 gap-3 pt-3">
+                  {section.skills.map(skill => (
+                    <TrainerSkillCard
+                      key={skill.id}
+                      skill={skill}
+                      onClick={() => handleSingleApprove(skill)}
+                      multiSelectMode={multiSelectMode}
+                      isSelected={selectedSkills.some(s => s.id === skill.id)}
+                      onToggleSelect={() => toggleSkillSelection(skill)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {student.recent_activity && student.recent_activity.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Recent Activity</h3>
+          <div className="space-y-3">
+            {student.recent_activity.map((activity, idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <div>
+                  <p className="font-medium text-gray-800">{activity.skill}</p>
+                  <p className="text-sm text-gray-600">by {activity.trainer}</p>
+                </div>
+                <div className="text-right">
+                  <span className={`px-2 py-1 rounded text-xs font-medium ${
+                    activity.action === 'approved' 
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                  }`}>
+                    {activity.action}
+                  </span>
+                  <p className="text-xs text-gray-500 mt-1">{activity.date}</p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
   );
 }
 
-// ============= TRAINER INBOX =============
-function TrainerInbox() {
+function TrainerSkillCard({ skill, onClick, multiSelectMode = false, isSelected = false, onToggleSelect }) {
+  const statusConfig = {
+    completed: {
+      bg: 'bg-green-50 border-green-300',
+      icon: Check,
+      iconColor: 'text-green-600',
+      text: 'Completed'
+    },
+    pending: {
+      bg: 'bg-yellow-50 border-yellow-300',
+      icon: Clock,
+      iconColor: 'text-yellow-600',
+      text: 'Pending Review'
+    },
+    available: {
+      bg: 'bg-white border-gray-200',
+      icon: null,
+      iconColor: '',
+      text: 'Not Started'
+    }
+  };
+
+  const config = statusConfig[skill.status] || statusConfig.available;
+  const Icon = config.icon;
+
+  const handleClick = () => {
+    if (multiSelectMode) {
+      onToggleSelect();
+    } else {
+      onClick();
+    }
+  };
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={!multiSelectMode && skill.status === 'completed'}
+      className={`${config.bg} ${isSelected ? 'ring-2 ring-blue-500' : ''} border-2 rounded-lg p-3 text-left hover:shadow-md transition ${
+        skill.status === 'completed' && !multiSelectMode ? 'cursor-default opacity-75' : 'cursor-pointer hover:border-blue-400'
+      }`}
+    >
+      <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center space-x-2 flex-1">
+          {multiSelectMode && skill.status !== 'completed' && (
+            <div>
+              {isSelected ? (
+                <CheckSquare className="w-5 h-5 text-blue-600" />
+              ) : (
+                <Square className="w-5 h-5 text-gray-400" />
+              )}
+            </div>
+          )}
+          <h4 className="font-bold text-gray-800 text-sm flex-1">{skill.title}</h4>
+        </div>
+        {Icon && !multiSelectMode && <Icon className={`w-4 h-4 ${config.iconColor} flex-shrink-0 ml-2`} />}
+      </div>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+            {'⭐'.repeat(skill.difficulty)}
+          </span>
+          <span className="text-sm font-bold text-blue-600">{skill.points} pts</span>
+        </div>
+        <span className="text-xs text-gray-500">{config.text}</span>
+      </div>
+    </button>
+  );
+}
+
+// ============= LEADERBOARD VIEW =============
+function LeaderboardView() {
   const { currentUser } = useContext(AppContext);
-  const { showToast } = useContext(ToastContext);
-  const [filter, setFilter] = useState('all');
-  const [submissions, setSubmissions] = useState([]);
+  const [classData, setClassData] = useState(null);
+  const [selectedView, setSelectedView] = useState('overall');
+  const [selectedClass, setSelectedClass] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadSubmissions();
-  }, [filter]);
+    loadLeaderboardData();
+  }, []);
 
-  const loadSubmissions = async () => {
+  const loadLeaderboardData = async () => {
     setLoading(true);
     try {
-      const statusFilter = filter === 'all' ? null : filter === 'pending' ? null : filter;
-      // FIXED: Trainers only see their class submissions
-      const data = await api.getSubmissions(null, statusFilter, currentUser.role === 'trainer');
+      const data = currentUser.role === 'admin' 
+        ? await api.getAllClasses() 
+        : await api.getMyStudents();
       
-      let filtered = data;
-      if (filter === 'pending') {
-        filtered = data.filter(s => s.status === 'requested' || s.status === 'submitted');
+      if (currentUser.role === 'admin') {
+        setClassData({ classes: data });
+        if (data.length > 0) {
+          setSelectedClass(data[0]);
+        }
+      } else {
+        setClassData(data);
+        if (data.classes && data.classes.length > 0) {
+          setSelectedClass(data.classes[0]);
+        }
       }
-      
-      setSubmissions(filtered.sort((a, b) => new Date(b.created_at) - new Date(a.created_at)));
     } catch (error) {
-      console.error('Failed to load submissions:', error);
+      console.error('Failed to load leaderboard data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDecision = async (submissionId, decision, trainerNotes = '') => {
-    try {
-      await api.updateSubmission(submissionId, {
-        status: decision,
-        trainer_notes: trainerNotes,
-        trainer_id: currentUser.id
-      });
-      
-      showToast(`Submission ${decision}!`, 'success');
-      loadSubmissions();
-    } catch (error) {
-      showToast(error.message || 'Failed to update submission', 'error');
-    }
+  const getAllStudents = () => {
+    if (!classData || !classData.classes) return [];
+    const allStudents = [];
+    classData.classes.forEach(cls => {
+      if (cls.students) {
+        cls.students.forEach(student => {
+          allStudents.push({
+            ...student,
+            class_name: cls.name
+          });
+        });
+      }
+    });
+    return allStudents.sort((a, b) => {
+      const gradeA = a.progress?.current_grade || 0;
+      const gradeB = b.progress?.current_grade || 0;
+      if (gradeB !== gradeA) return gradeB - gradeA;
+      return (b.progress?.total_points || 0) - (a.progress?.total_points || 0);
+    });
+  };
+
+  const getClassStudents = (classObj) => {
+    if (!classObj || !classObj.students) return [];
+    return [...classObj.students].sort((a, b) => {
+      const gradeA = a.progress?.current_grade || 0;
+      const gradeB = b.progress?.current_grade || 0;
+      if (gradeB !== gradeA) return gradeB - gradeA;
+      return (b.progress?.total_points || 0) - (a.progress?.total_points || 0);
+    });
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading submissions...</div>;
+    return <div className="text-center py-8">Loading leaderboard...</div>;
+  }
+
+  const overallStudents = getAllStudents();
+  const classStudents = selectedClass ? getClassStudents(selectedClass) : [];
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Leaderboard</h2>
+            <p className="text-gray-600">Top performing students</p>
+          </div>
+          <Trophy className="w-12 h-12 text-amber-500" />
+        </div>
+      </div>
+
+      <div className="flex space-x-2">
+        <button
+          onClick={() => setSelectedView('overall')}
+          className={`px-4 py-2 rounded-lg font-medium transition ${
+            selectedView === 'overall'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          Overall
+        </button>
+        <button
+          onClick={() => setSelectedView('class')}
+          className={`px-4 py-2 rounded-lg font-medium transition ${
+            selectedView === 'class'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+          }`}
+        >
+          By Class
+        </button>
+      </div>
+
+      {selectedView === 'class' && classData && classData.classes && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">Select Class</label>
+          <select
+            value={selectedClass?.id || ''}
+            onChange={(e) => {
+              const cls = classData.classes.find(c => c.id === parseInt(e.target.value));
+              setSelectedClass(cls);
+            }}
+            className="w-full px-4 py-2 border rounded-lg"
+          >
+            {classData.classes.map(cls => (
+              <option key={cls.id} value={cls.id}>
+                {cls.name} - {cls.day_of_week} {cls.time_slot}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b">
+          <h3 className="text-xl font-bold text-gray-800">
+            {selectedView === 'overall' ? 'Overall Rankings' : `${selectedClass?.name || 'Class'} Rankings`}
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            Sorted by grade level and total points
+          </p>
+        </div>
+
+        <div className="p-6">
+          <div className="space-y-3">
+            {(selectedView === 'overall' ? overallStudents : classStudents).map((student, idx) => (
+              <LeaderboardRow key={student.user_id} student={student} rank={idx + 1} showClass={selectedView === 'overall'} />
+            ))}
+            {(selectedView === 'overall' ? overallStudents : classStudents).length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                No students found
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LeaderboardRow({ student, rank, showClass }) {
+  const progress = student.progress || {};
+  const currentGrade = progress.current_grade || 0;
+  const totalPoints = progress.total_points || 0;
+  
+  const medalColors = {
+    1: 'bg-gradient-to-br from-amber-400 to-amber-600',
+    2: 'bg-gradient-to-br from-gray-300 to-gray-500',
+    3: 'bg-gradient-to-br from-amber-600 to-amber-800'
+  };
+
+  return (
+    <div className={`flex items-center space-x-4 p-4 rounded-lg ${
+      rank <= 3 ? 'bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200' : 'bg-gray-50 border border-gray-200'
+    }`}>
+      <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-white text-lg ${
+        medalColors[rank] || 'bg-gray-400'
+      }`}>
+        {rank <= 3 ? <Trophy className="w-6 h-6" /> : rank}
+      </div>
+      
+      <div className="flex-1">
+        <div className="flex items-center space-x-2">
+          <h4 className="font-bold text-gray-800">{student.dog_name}</h4>
+          {rank === 1 && <span className="text-xs bg-amber-500 text-white px-2 py-1 rounded-full font-medium">Champion</span>}
+        </div>
+        <p className="text-sm text-gray-600">{student.owners}</p>
+        {showClass && <p className="text-xs text-gray-500">{student.class_name}</p>}
+      </div>
+
+      <div className="text-center px-4">
+        <div className="text-2xl font-bold text-blue-600">{currentGrade}</div>
+        <div className="text-xs text-gray-500">Grade</div>
+      </div>
+
+      <div className="text-center px-4">
+        <div className="text-lg font-bold text-purple-600">{totalPoints}</div>
+        <div className="text-xs text-gray-500">Points</div>
+      </div>
+
+      <div className="text-center px-4">
+        <div className="text-lg font-bold text-green-600">{progress.sections_with_skills || 0}/6</div>
+        <div className="text-xs text-gray-500">Sections</div>
+      </div>
+    </div>
+  );
+}
+
+// ============= SECTIONS VIEW =============
+function SectionsView() {
+  const { sections } = useContext(AppContext);
+  const [selectedSection, setSelectedSection] = useState(null);
+
+  return (
+    <div className="space-y-6">
+      <h2 className="text-2xl font-bold text-gray-800">Skills & Sections</h2>
+      
+      {!selectedSection ? (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {sections.filter(s => s.active).sort((a, b) => a.display_order - b.display_order).map(section => (
+            <button
+              key={section.id}
+              onClick={() => setSelectedSection(section)}
+              className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition text-left"
+            >
+              <h3 className="text-xl font-bold text-gray-800 mb-2">{section.name}</h3>
+              <p className="text-gray-600 mb-4">{section.description}</p>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <SectionDetail section={selectedSection} onBack={() => setSelectedSection(null)} />
+      )}
+    </div>
+  );
+}
+
+function SectionDetail({ section, onBack }) {
+  const { currentUser, skills } = useContext(AppContext);
+  const [selectedSkill, setSelectedSkill] = useState(null);
+  const [sectionSkills, setSectionSkills] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [completions, setCompletions] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadSectionData();
+  }, [section]);
+
+  const loadSectionData = async () => {
+    setLoading(true);
+    try {
+      const skillsData = await api.getSkills(section.id);
+      setSectionSkills(skillsData);
+
+      if (currentUser.role === 'member') {
+        const [submissionsData, progressData] = await Promise.all([
+          api.getSubmissions(currentUser.id),
+          api.getGradeProgress(currentUser.id)
+        ]);
+        
+        setSubmissions(submissionsData);
+        const completionSkills = progressData.availableCompletions?.map(c => c.skill_id) || [];
+        setCompletions(completionSkills);
+      } else {
+        setSubmissions([]);
+        setCompletions([]);
+      }
+    } catch (error) {
+      console.error('Failed to load section data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getSkillStatus = (skillId) => {
+    if (currentUser.role !== 'member') {
+      return 'available';
+    }
+
+    if (completions.includes(skillId)) return 'completed';
+    
+    const submission = submissions.find(s => 
+      s.skill_id === skillId && 
+      (s.status === 'requested' || s.status === 'submitted')
+    );
+    if (submission) return submission.status;
+    
+    return 'available';
+  };
+
+  if (loading) {
+    return <div className="text-center py-8">Loading skills...</div>;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">Trainer Inbox</h2>
-        <div className="flex space-x-2">
-          {['all', 'pending', 'approved', 'rejected'].map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-4 py-2 rounded-lg capitalize transition ${
-                filter === f
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+      <div className="flex items-center space-x-4">
+        <button
+          onClick={onBack}
+          className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+        >
+          ← Back
+        </button>
+        <div>
+          <h2 className="text-2xl font-bold text-gray-800">{section.name}</h2>
+          <p className="text-gray-600">{section.description}</p>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {submissions.length === 0 ? (
-          <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-            No submissions found
-          </div>
-        ) : (
-          submissions.map(submission => (
-            <SubmissionCard
-              key={submission.id}
-              submission={submission}
-              onDecision={handleDecision}
-            />
-          ))
-        )}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <p className="text-sm text-yellow-800">
+          Unless stated otherwise, food/toys only as a reward, not as a lure or encouragement.
+        </p>
       </div>
+
+      {sectionSkills.length === 0 ? (
+        <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
+          No skills found in this section.
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {sectionSkills.map(skill => {
+            const status = getSkillStatus(skill.id);
+            const statusColors = {
+              completed: 'border-green-500 bg-green-50',
+              requested: 'border-yellow-500 bg-yellow-50',
+              submitted: 'border-blue-500 bg-blue-50',
+              available: 'border-gray-200 bg-white'
+            };
+            
+            return (
+              <div
+                key={skill.id}
+                className={`border-2 rounded-lg p-4 ${statusColors[status]} ${
+                  currentUser.role === 'member' ? 'cursor-pointer hover:shadow-lg' : ''
+                } transition`}
+                onClick={() => currentUser.role === 'member' && setSelectedSkill(skill)}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-bold text-gray-800">{skill.title}</h3>
+                  {status === 'completed' && <Check className="w-5 h-5 text-green-600" />}
+                  {status === 'requested' && <Clock className="w-5 h-5 text-yellow-600" />}
+                  {status === 'submitted' && <Upload className="w-5 h-5 text-blue-600" />}
+                </div>
+                <p className="text-sm text-gray-600 mb-3">{skill.description}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs bg-gray-200 px-2 py-1 rounded">
+                      {'⭐'.repeat(skill.difficulty)}
+                    </span>
+                    <span className="text-sm font-bold text-blue-600">{skill.points} pts</span>
+                  </div>
+                  {currentUser.role === 'member' && (
+                    <span className="text-xs text-gray-500 capitalize">{status}</span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {selectedSkill && currentUser.role === 'member' && (
+        <SkillSubmissionModal
+          skill={selectedSkill}
+          onClose={() => {
+            setSelectedSkill(null);
+            loadSectionData();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function SubmissionCard({ submission, onDecision }) {
+function SkillSubmissionModal({ skill, onClose }) {
+  const { currentUser } = useContext(AppContext);
+  const { showToast } = useContext(ToastContext);
+  const [mode, setMode] = useState('class_request');
   const [notes, setNotes] = useState('');
-  const [showDecision, setShowDecision] = useState(false);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const statusColors = {
-    requested: 'bg-yellow-50 border-yellow-300',
-    submitted: 'bg-blue-50 border-blue-300',
-    approved: 'bg-green-50 border-green-300',
-    rejected: 'bg-red-50 border-red-300'
+  const handleSubmit = async () => {
+    setSubmitting(true);
+    
+    try {
+      await api.createSubmission({
+        user_id: currentUser.id,
+        skill_id: skill.id,
+        mode,
+        video_url: mode === 'home_video' ? videoUrl : null,
+        member_notes: notes
+      });
+      showToast('Skill submission sent!', 'success');
+      onClose();
+    } catch (err) {
+      showToast(err.message || 'Failed to submit', 'error');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className={`border-2 rounded-lg p-6 ${statusColors[submission.status]}`}>
-      <div className="flex justify-between items-start mb-4">
-        <div>
-          <h3 className="text-lg font-bold text-gray-800">
-            {submission.member_name} - {submission.skill_title}
-          </h3>
-          <p className="text-sm text-gray-600">{submission.section_name} • {submission.skill_points} points</p>
-          <p className="text-xs text-gray-500 mt-1">
-            {new Date(submission.created_at).toLocaleDateString()}
-          </p>
-        </div>
-        <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${
-          submission.status === 'approved' ? 'bg-green-200 text-green-800' :
-          submission.status === 'rejected' ? 'bg-red-200 text-red-800' :
-          submission.status === 'submitted' ? 'bg-blue-200 text-blue-800' :
-          'bg-yellow-200 text-yellow-800'
-        }`}>
-          {submission.status}
-        </span>
-      </div>
-
-      <div className="space-y-3">
-        <div>
-          <p className="text-sm font-medium text-gray-700">Type:</p>
-          <p className="text-sm text-gray-600 capitalize">{submission.mode.replace('_', ' ')}</p>
-        </div>
-
-        {submission.video_url && (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Submit: {skill.title}</h3>
+        
+        <div className="space-y-4">
           <div>
-            <p className="text-sm font-medium text-gray-700">Video:</p>
-            <p className="text-sm text-blue-600">{submission.video_url}</p>
-          </div>
-        )}
-
-        {submission.member_notes && (
-          <div>
-            <p className="text-sm font-medium text-gray-700">Member Notes:</p>
-            <p className="text-sm text-gray-600">{submission.member_notes}</p>
-          </div>
-        )}
-
-        {submission.trainer_notes && (
-          <div>
-            <p className="text-sm font-medium text-gray-700">Trainer Notes:</p>
-            <p className="text-sm text-gray-600">{submission.trainer_notes}</p>
-          </div>
-        )}
-
-        {(submission.status === 'requested' || submission.status === 'submitted') && (
-          <div>
-            {!showDecision ? (
-              <button
-                onClick={() => setShowDecision(true)}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition"
-              >
-                Review & Decide
-              </button>
-            ) : (
-              <div className="space-y-3 pt-4 border-t">
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg h-20"
-                  placeholder="Trainer feedback..."
+            <label className="block text-sm font-medium text-gray-700 mb-2">Submission Type</label>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={mode === 'class_request'}
+                  onChange={() => setMode('class_request')}
+                  className="w-4 h-4"
                 />
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => { onDecision(submission.id, 'approved', notes); setShowDecision(false); }}
-                    className="flex-1 bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition"
-                  >
-                    ✓ Approve
-                  </button>
-                  <button
-                    onClick={() => { onDecision(submission.id, 'rejected', notes); setShowDecision(false); }}
-                    className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
-                  >
-                    ✗ Reject
-                  </button>
-                  <button
-                    onClick={() => setShowDecision(false)}
-                    className="px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            )}
+                <span>Request Class Assessment</span>
+              </label>
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  checked={mode === 'home_video'}
+                  onChange={() => setMode('home_video')}
+                  className="w-4 h-4"
+                />
+                <span>Submit Home Video</span>
+              </label>
+            </div>
           </div>
-        )}
+
+          {mode === 'home_video' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Video URL or Description
+              </label>
+              <input
+                type="text"
+                value={videoUrl}
+                onChange={(e) => setVideoUrl(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg"
+                placeholder="YouTube link or description"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="w-full px-3 py-2 border rounded-lg h-24"
+              placeholder="Any additional information..."
+            />
+          </div>
+
+          <div className="flex space-x-3">
+            <button
+              onClick={handleSubmit}
+              disabled={submitting}
+              className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {submitting ? 'Submitting...' : 'Submit'}
+            </button>
+            <button
+              onClick={onClose}
+              disabled={submitting}
+              className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
 }
-
-// ============= CERTIFICATES VIEW =============
-function CertificatesView() {
-  const { currentUser } = useContext(AppContext);
-  const { showToast } = useContext(ToastContext);
-  const [progress, setProgress] = useState(null);
-  const [certificates, setCertificates] = useState([]);
-  const [pendingRequests, setPendingRequests] = useState([]);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadCertificatesData();
-  }, [currentUser]);
-
-  const loadCertificatesData = async () => {
-    setLoading(true);
-    try {
-      if (currentUser.role === 'member') {
-        const [progressData, certsData, profileData] = await Promise.all([
-          api.getGradeProgress(currentUser.id),
-          api.getCertificates(currentUser.id),
-          api.getProfile(currentUser.id).catch(() => null)
-        ]);
-        
-        setProgress(progressData);
-        setCertificates(certsData);
-        setProfile(profileData);
-      } else {
-        const pendingCerts = await api.getCertificates(null, 'pending');
-        setPendingRequests(pendingCerts);
-      }
-    } catch (error) {
-      console.error('Failed to load certificates data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleApproveGrade = async (certId, studentName, gradeNumber) => {
-    try {
-      await api.approveCertificate({
-        certificate_id: certId,
-        trainer_id: currentUser.id
-      });
-      showToast(`Grade ${gradeNumber} approved for ${studentName}!`, 'success');
-      loadCertificatesData();
-    } catch (error) {
-      showToast(error.message || 'Failed to approve grade', 'error');
-    }
-  };
-
-  if (loading) {
-    return <div className="text-center py-8">Loading...</div>;
