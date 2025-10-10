@@ -4,8 +4,11 @@
 
 :root {
   --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 50, 48, 59;
-  --background-end-rgb: 50, 48, 59;
+  --background-start-rgb: 249, 250, 251;
+  --background-end-rgb: 243, 244, 246;
+  --primary-dark: #32303b;
+  --primary-gold: #dcac6e;
+  --primary-gold-dark: #c49654;
 }
 
 body {
@@ -16,6 +19,47 @@ body {
       rgb(var(--background-end-rgb))
     )
     rgb(var(--background-start-rgb));
+}
+
+/* Custom classes for brand colors */
+.bg-brand-dark {
+  background-color: var(--primary-dark);
+}
+
+.bg-brand-gold {
+  background-color: var(--primary-gold);
+}
+
+.text-brand-dark {
+  color: var(--primary-dark);
+}
+
+.text-brand-gold {
+  color: var(--primary-gold);
+}
+
+.border-brand-dark {
+  border-color: var(--primary-dark);
+}
+
+.border-brand-gold {
+  border-color: var(--primary-gold);
+}
+
+.hover\:bg-brand-gold:hover {
+  background-color: var(--primary-gold);
+}
+
+.hover\:bg-brand-dark:hover {
+  background-color: var(--primary-dark);
+}
+
+.hover\:text-brand-gold:hover {
+  color: var(--primary-gold);
+}
+
+.hover\:border-brand-gold:hover {
+  border-color: var(--primary-gold);
 }
 
 /* Toast notification animation */
@@ -32,4 +76,41 @@ body {
 
 .animate-slide-in {
   animation: slide-in 0.3s ease-out;
+}
+
+/* Custom gradient backgrounds with brand colors */
+.gradient-brand-dark {
+  background: linear-gradient(135deg, var(--primary-dark) 0%, #43414d 100%);
+}
+
+.gradient-brand-gold {
+  background: linear-gradient(135deg, var(--primary-gold) 0%, #e8c285 100%);
+}
+
+/* Focus styles with brand colors */
+.focus-brand:focus {
+  outline: 2px solid var(--primary-gold);
+  outline-offset: 2px;
+}
+
+/* Button styles */
+.btn-brand-primary {
+  background-color: var(--primary-dark);
+  color: white;
+  transition: all 0.3s ease;
+}
+
+.btn-brand-primary:hover {
+  background-color: var(--primary-gold);
+  color: var(--primary-dark);
+}
+
+.btn-brand-secondary {
+  background-color: var(--primary-gold);
+  color: var(--primary-dark);
+  transition: all 0.3s ease;
+}
+
+.btn-brand-secondary:hover {
+  background-color: var(--primary-gold-dark);
 }
