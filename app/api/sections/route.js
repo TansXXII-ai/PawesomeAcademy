@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
+
 // GET all sections
 export async function GET(request) {
   try {
@@ -21,9 +22,23 @@ export async function GET(request) {
   }
 }
 
-// POST new section (admin/trainer only)
+// POST new section (admin only)
 export async function POST(request) {
   try {
+    const cookieStore = cookies();
+    const userCookie = cookieStore.get('user');
+    
+    if (!userCookie) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const currentUser = JSON.parse(userCookie.value);
+    
+    // Only admins can create sections
+    if (currentUser.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 });
+    }
+
     const { name, description, display_order } = await request.json();
     
     if (!name) {
