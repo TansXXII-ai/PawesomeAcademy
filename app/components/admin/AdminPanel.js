@@ -12,11 +12,15 @@ export default function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [adminSections, setAdminSections] = useState([]);
   const [skills, setSkills] = useState([]);
+  const [classes, setClasses] = useState([]);
+  const [trainers, setTrainers] = useState([]);
   const [loading, setLoading] = useState(false);
 
   // Modal states
   const [deleteModal, setDeleteModal] = useState({ show: false, user: null });
   const [passwordModal, setPasswordModal] = useState({ show: false, user: null, password: '' });
+  const [deleteClassModal, setDeleteClassModal] = useState({ show: false, class: null });
+  const [editClassModal, setEditClassModal] = useState({ show: false, class: null });
 
   // User form state
   const [userForm, setUserForm] = useState({
@@ -43,6 +47,14 @@ export default function AdminPanel() {
     display_order: 99
   });
 
+  // Class form state
+  const [classForm, setClassForm] = useState({
+    name: '',
+    day_of_week: 'Monday',
+    time_slot: '',
+    trainer_id: ''
+  });
+
   useEffect(() => {
     if (activeTab === 'users') {
       loadUsers();
@@ -51,6 +63,9 @@ export default function AdminPanel() {
     } else if (activeTab === 'skills') {
       loadSkills();
       loadSections();
+    } else if (activeTab === 'classes') {
+      loadClasses();
+      loadTrainers();
     }
   }, [activeTab]);
 
@@ -90,6 +105,30 @@ export default function AdminPanel() {
       console.error('Failed to load skills:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadClasses = async () => {
+    setLoading(true);
+    try {
+      const response = await fetch('/api/classes?includeMembers=true');
+      const data = await response.json();
+      setClasses(data);
+    } catch (error) {
+      console.error('Failed to load classes:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTrainers = async () => {
+    try {
+      const response = await fetch('/api/users');
+      const users = await response.json();
+      const trainerList = users.filter(u => u.role === 'trainer' || u.role === 'admin');
+      setTrainers(trainerList);
+    } catch (error) {
+      console.error('Failed to load trainers:', error);
     }
   };
 
@@ -213,6 +252,74 @@ export default function AdminPanel() {
     }
   };
 
+  const handleCreateClass = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/classes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(classForm)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create class');
+      }
+
+      showToast('Class created successfully!', 'success');
+      setClassForm({
+        name: '',
+        day_of_week: 'Monday',
+        time_slot: '',
+        trainer_id: ''
+      });
+      loadClasses();
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  };
+
+  const handleUpdateClass = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`/api/classes/${editClassModal.class.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editClassModal.class)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update class');
+      }
+
+      showToast('Class updated successfully!', 'success');
+      setEditClassModal({ show: false, class: null });
+      loadClasses();
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  };
+
+  const handleDeleteClass = async () => {
+    try {
+      const response = await fetch(`/api/classes/${deleteClassModal.class.id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete class');
+      }
+
+      showToast('Class deleted successfully!', 'success');
+      setDeleteClassModal({ show: false, class: null });
+      loadClasses();
+    } catch (error) {
+      showToast(error.message, 'error');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
@@ -221,7 +328,7 @@ export default function AdminPanel() {
       </div>
 
       <div className="flex space-x-2 border-b-2 border-[#dcac6e]">
-        {['users', 'sections', 'skills'].map(tab => (
+        {['users', 'sections', 'skills', 'classes'].map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -560,6 +667,131 @@ export default function AdminPanel() {
         </div>
       )}
 
+      {activeTab === 'classes' && (
+        <div className="grid md:grid-cols-2 gap-6">
+          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+            <h3 className="text-xl font-bold text-[#32303b] mb-4">Create New Class</h3>
+            <form onSubmit={handleCreateClass} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Class Name *</label>
+                <input
+                  type="text"
+                  value={classForm.name}
+                  onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  placeholder="e.g., Beginner Puppies, Advanced Tricks"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Day of Week *</label>
+                <select
+                  value={classForm.day_of_week}
+                  onChange={(e) => setClassForm({ ...classForm, day_of_week: e.target.value })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  required
+                >
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Time Slot *</label>
+                <input
+                  type="text"
+                  value={classForm.time_slot}
+                  onChange={(e) => setClassForm({ ...classForm, time_slot: e.target.value })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  placeholder="e.g., 10:00 AM - 11:00 AM"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Trainer *</label>
+                <select
+                  value={classForm.trainer_id}
+                  onChange={(e) => setClassForm({ ...classForm, trainer_id: parseInt(e.target.value) })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  required
+                >
+                  <option value="">Select a trainer</option>
+                  {trainers.map(trainer => (
+                    <option key={trainer.id} value={trainer.id}>
+                      {trainer.username} ({trainer.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium"
+              >
+                Create Class
+              </button>
+            </form>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+            <h3 className="text-xl font-bold text-[#32303b] mb-4">Existing Classes</h3>
+            {loading ? (
+              <p className="text-gray-500">Loading...</p>
+            ) : (
+              <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                {classes.length === 0 ? (
+                  <p className="text-gray-500 text-center py-4">No classes created yet</p>
+                ) : (
+                  classes
+                    .sort((a, b) => {
+                      const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                      const dayA = dayOrder.indexOf(a.day_of_week);
+                      const dayB = dayOrder.indexOf(b.day_of_week);
+                      if (dayA !== dayB) return dayA - dayB;
+                      return a.time_slot.localeCompare(b.time_slot);
+                    })
+                    .map(classItem => (
+                      <div key={classItem.id} className="border-2 border-[#dcac6e] rounded-lg p-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex-1">
+                            <p className="font-bold text-[#32303b]">{classItem.name}</p>
+                            <p className="text-sm text-gray-600">{classItem.day_of_week} • {classItem.time_slot}</p>
+                            <p className="text-sm text-gray-600">Trainer: {classItem.trainer_name}</p>
+                          </div>
+                          <div className="flex items-center space-x-1 bg-[#dcac6e] bg-opacity-20 px-2 py-1 rounded">
+                            <span className="text-xs font-bold text-[#32303b]">{classItem.member_count || 0}</span>
+                            <span className="text-xs text-gray-600">students</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-3">
+                          Created: {new Date(classItem.created_at).toLocaleDateString()}
+                        </p>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setEditClassModal({ show: true, class: { ...classItem } })}
+                            className="flex-1 bg-[#dcac6e] text-[#32303b] py-1.5 px-3 rounded text-sm hover:bg-[#c49654] transition font-medium"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => setDeleteClassModal({ show: true, class: classItem })}
+                            className="flex-1 bg-red-600 text-white py-1.5 px-3 rounded text-sm hover:bg-red-700 transition font-medium"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Delete Confirmation Modal */}
       {deleteModal.show && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -617,6 +849,129 @@ export default function AdminPanel() {
               </button>
               <button
                 onClick={() => setPasswordModal({ show: false, user: null, password: '' })}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Class Modal */}
+      {editClassModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-[#dcac6e]">
+            <h3 className="text-xl font-bold text-[#32303b] mb-4">Edit Class</h3>
+            <form onSubmit={handleUpdateClass} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Class Name *</label>
+                <input
+                  type="text"
+                  value={editClassModal.class.name}
+                  onChange={(e) => setEditClassModal({
+                    ...editClassModal,
+                    class: { ...editClassModal.class, name: e.target.value }
+                  })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Day of Week *</label>
+                <select
+                  value={editClassModal.class.day_of_week}
+                  onChange={(e) => setEditClassModal({
+                    ...editClassModal,
+                    class: { ...editClassModal.class, day_of_week: e.target.value }
+                  })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  required
+                >
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                    <option key={day} value={day}>{day}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Time Slot *</label>
+                <input
+                  type="text"
+                  value={editClassModal.class.time_slot}
+                  onChange={(e) => setEditClassModal({
+                    ...editClassModal,
+                    class: { ...editClassModal.class, time_slot: e.target.value }
+                  })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#32303b] mb-1">Trainer *</label>
+                <select
+                  value={editClassModal.class.trainer_id}
+                  onChange={(e) => setEditClassModal({
+                    ...editClassModal,
+                    class: { ...editClassModal.class, trainer_id: parseInt(e.target.value) }
+                  })}
+                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+                  required
+                >
+                  <option value="">Select a trainer</option>
+                  {trainers.map(trainer => (
+                    <option key={trainer.id} value={trainer.id}>
+                      {trainer.username} ({trainer.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition"
+                >
+                  Update Class
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditClassModal({ show: false, class: null })}
+                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Class Confirmation Modal */}
+      {deleteClassModal.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-red-500">
+            <h3 className="text-xl font-bold text-red-600 mb-4">Delete Class</h3>
+            <p className="text-gray-700 mb-2">
+              Are you sure you want to delete <strong>{deleteClassModal.class?.name}</strong>?
+            </p>
+            <p className="text-sm text-gray-600 mb-2">
+              This class has <strong>{deleteClassModal.class?.member_count || 0}</strong> students enrolled.
+            </p>
+            <p className="text-sm text-gray-600 mb-6">
+              Students will remain in the system but will no longer be associated with this class.
+            </p>
+            <div className="flex space-x-3">
+              <button
+                onClick={handleDeleteClass}
+                className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
+              >
+                Delete Class
+              </button>
+              <button
+                onClick={() => setDeleteClassModal({ show: false, class: null })}
                 className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
               >
                 Cancel
