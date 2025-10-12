@@ -1,3 +1,4 @@
+// app/api/submissions/route.js
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { cookies } from 'next/headers';
@@ -19,6 +20,7 @@ export async function GET(request) {
     const userId = searchParams.get('userId');
     const status = searchParams.get('status');
     const myClassOnly = searchParams.get('myClassOnly') === 'true';
+    const includeArchived = searchParams.get('includeArchived') === 'true';
 
     let sql = `
       SELECT 
@@ -43,6 +45,11 @@ export async function GET(request) {
     `;
 
     const params = [];
+
+    // Filter out archived submissions unless specifically requested
+    if (!includeArchived) {
+      sql += ' AND (s.archived = 0 OR s.archived IS NULL)';
+    }
 
     // Filter by userId if provided
     if (userId) {
@@ -72,7 +79,13 @@ export async function GET(request) {
       params.push({ name: 'trainerId', type: 'Int', value: currentUser.id });
     }
 
-    sql += ' ORDER BY s.created_at DESC';
+    // Order by: pending first, then by date descending
+    sql += ` ORDER BY 
+      CASE 
+        WHEN s.status IN ('requested', 'submitted') THEN 0 
+        ELSE 1 
+      END,
+      s.created_at DESC`;
 
     const result = await query(sql, params);
     return NextResponse.json(result.recordset);
