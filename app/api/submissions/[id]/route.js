@@ -6,7 +6,7 @@ import { cookies } from 'next/headers';
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
 
-// PATCH - approve or reject submission
+// PATCH - approve, reject, or archive submission
 export async function PATCH(request, { params }) {
   try {
     const cookieStore = cookies();
@@ -18,8 +18,20 @@ export async function PATCH(request, { params }) {
 
     const currentUser = JSON.parse(userCookie.value);
     const submissionId = params.id;
-    const { status, trainer_notes, trainer_id } = await request.json();
+    const body = await request.json();
+    const { status, trainer_notes, trainer_id, action } = body;
     
+    // Handle archive action
+    if (action === 'archive') {
+      await query(
+        'UPDATE Submissions SET archived = 1 WHERE id = @param0',
+        [parseInt(submissionId)]
+      );
+      
+      return NextResponse.json({ success: true, message: 'Submission archived' });
+    }
+    
+    // Handle approve/reject actions
     if (!status || !['approved', 'rejected'].includes(status)) {
       return NextResponse.json(
         { error: 'Valid status required (approved/rejected)' },
