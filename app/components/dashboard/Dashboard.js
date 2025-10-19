@@ -1,4 +1,4 @@
-// app/components/dashboard/Dashboard.js - COMPLETE FILE - REPLACE ENTIRE FILE
+// app/components/dashboard/Dashboard.js - REPLACE ENTIRE FILE
 'use client';
 import React, { useState, useContext, useEffect } from 'react';
 import { Award, Book, User, Star, Check, Clock, Upload, ChevronRight, Trophy, CheckSquare, Square } from 'lucide-react';
@@ -35,25 +35,14 @@ export default function Dashboard() {
       } else {
         const [submissionsData, classesData] = await Promise.all([
           api.getSubmissions(null, null, currentUser.role === 'trainer'),
-          currentUser.role === 'admin' ? api.getAllClasses() : api.getMyStudents()
+          // Always fetch all students for both admin and trainer
+          api.getMyStudents()
         ]);
         setSubmissions(submissionsData);
+        setClassData(classesData);
         
-        if (currentUser.role === 'admin') {
-          const formattedClasses = classesData.map(cls => ({
-            ...cls,
-            students: [],
-            student_count: cls.member_count || 0
-          }));
-          setClassData({ classes: formattedClasses });
-          if (formattedClasses.length > 0) {
-            setSelectedClass(formattedClasses[0]);
-          }
-        } else {
-          setClassData(classesData);
-          if (classesData.classes && classesData.classes.length > 0) {
-            setSelectedClass(classesData.classes[0]);
-          }
+        if (classesData.classes && classesData.classes.length > 0) {
+          setSelectedClass(classesData.classes[0]);
         }
       }
     } catch (error) {
@@ -346,18 +335,18 @@ function TrainerAdminDashboard({
 }) {
   const [showMyClassesOnly, setShowMyClassesOnly] = useState(currentUser.role === 'trainer');
   
-  // Filter classes based on toggle
-  const filteredClasses = showMyClassesOnly && currentUser.role === 'admin'
+  // Filter classes based on toggle - both trainer and admin use same logic
+  const filteredClasses = showMyClassesOnly
     ? classData?.classes.filter(cls => cls.trainer_id === currentUser.id) || []
     : classData?.classes || [];
 
-  const totalStudents = filteredClasses.reduce((sum, cls) => sum + cls.student_count, 0) || 0;
+  const totalStudents = filteredClasses.reduce((sum, cls) => sum + (cls.students?.length || cls.student_count || 0), 0);
   const pendingReviews = filteredClasses.reduce((sum, cls) => 
-    sum + (cls.students?.reduce((s, st) => s + st.pending_submissions, 0) || 0), 0
+    sum + (cls.students?.reduce((s, st) => s + (st.pending_submissions || 0), 0) || 0), 0
   );
   const readyForCert = filteredClasses.reduce((sum, cls) => 
     sum + (cls.students?.filter(st => 
-      st.progress?.total_points >= st.progress?.points_required
+      (st.progress?.total_points || 0) >= (st.progress?.points_required || 20)
     ).length || 0), 0
   );
 
@@ -373,41 +362,40 @@ function TrainerAdminDashboard({
       .slice(0, 5);
   };
 
+  // Update selected class when filter changes
+  useEffect(() => {
+    if (filteredClasses.length > 0 && !filteredClasses.find(c => c.id === selectedClass?.id)) {
+      setSelectedClass(filteredClasses[0]);
+    }
+  }, [showMyClassesOnly, filteredClasses]);
+
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-2xl font-bold text-[#32303b]">
-              {currentUser.role === 'admin' ? 'Training Overview' : 'My Classes'}
+              {currentUser.role === 'admin' ? 'Training Overview' : 'Classes'}
             </h2>
             <p className="text-gray-600">
               Welcome back, {classData?.trainer_name || currentUser.username}
             </p>
           </div>
           
-          {/* Filter Toggle - Only show for admins */}
-          {currentUser.role === 'admin' && (
-            <div className="flex items-center space-x-3">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showMyClassesOnly}
-                  onChange={(e) => {
-                    setShowMyClassesOnly(e.target.checked);
-                    // Reset selected class when toggling
-                    if (filteredClasses.length > 0) {
-                      setSelectedClass(filteredClasses[0]);
-                    }
-                  }}
-                  className="w-4 h-4 accent-[#32303b]"
-                />
-                <span className="text-sm font-medium text-[#32303b]">
-                  Show My Classes Only
-                </span>
-              </label>
-            </div>
-          )}
+          {/* Filter Toggle - Show for both admin and trainer */}
+          <div className="flex items-center space-x-3">
+            <label className="flex items-center space-x-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showMyClassesOnly}
+                onChange={(e) => setShowMyClassesOnly(e.target.checked)}
+                className="w-4 h-4 accent-[#32303b]"
+              />
+              <span className="text-sm font-medium text-[#32303b]">
+                My Classes Only
+              </span>
+            </label>
+          </div>
         </div>
       </div>
 
@@ -418,7 +406,7 @@ function TrainerAdminDashboard({
           </div>
           <p className="text-3xl font-bold">{totalStudents}</p>
           <p className="text-sm opacity-90">
-            {showMyClassesOnly && currentUser.role === 'admin' ? 'My Students' : 'Total Students'}
+            {showMyClassesOnly ? 'My Students' : 'Total Students'}
           </p>
         </div>
 
@@ -463,7 +451,7 @@ function TrainerAdminDashboard({
                 <div className="text-left">
                   <div className="font-bold">{cls.name}</div>
                   <div className="text-xs opacity-75">
-                    {cls.day_of_week} • {cls.time_slot} • {cls.student_count} students
+                    {cls.day_of_week} • {cls.time_slot} • {cls.students?.length || cls.student_count || 0} students
                   </div>
                 </div>
               </button>
@@ -530,14 +518,14 @@ function TrainerAdminDashboard({
           <p className="text-gray-600 mb-2">
             {showMyClassesOnly 
               ? 'You have no classes assigned yet.' 
-              : currentUser.role === 'admin' 
-                ? 'No classes have been created yet.' 
-                : 'You are not assigned to any classes yet.'}
+              : 'No classes have been created yet.'}
           </p>
           <p className="text-sm text-gray-500">
-            {currentUser.role === 'admin'
-              ? 'Create a class to get started or toggle "Show My Classes Only" to see all classes.'
-              : 'Contact an administrator to be assigned to a class.'}
+            {showMyClassesOnly
+              ? 'Uncheck "My Classes Only" to see all classes or contact an administrator.'
+              : currentUser.role === 'admin'
+                ? 'Create a class to get started.'
+                : 'Contact an administrator to be assigned to a class.'}
           </p>
         </div>
       )}
