@@ -1,3 +1,4 @@
+// app/api/grades/progress/route.js - REPLACE ENTIRE FILE
 import { NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { cookies } from 'next/headers';
@@ -75,7 +76,7 @@ export async function GET(request) {
     
     const available = await query(availableQuery, params);
     
-    // Calculate totals
+    // Calculate totals for AVAILABLE (unused) completions
     let totalPoints = 0;
     const sectionPoints = {};
     const sectionsWithSkills = new Set();
@@ -88,9 +89,26 @@ export async function GET(request) {
       completionIds.push(comp.completion_id);
     });
     
+    // Get section completion counts (ALL TIME - including used completions)
+    const sectionCountsQuery = await query(
+      `SELECT 
+        s.section_id,
+        COUNT(*) as completion_count
+       FROM Completions c
+       JOIN Skills s ON c.skill_id = s.id
+       WHERE c.user_id = @userId
+       GROUP BY s.section_id`,
+      [{ name: 'userId', type: 'Int', value: parseInt(userId) }]
+    );
+    
+    const sectionCompletionCounts = {};
+    sectionCountsQuery.recordset.forEach(row => {
+      sectionCompletionCounts[row.section_id] = row.completion_count;
+    });
+    
     const pointsRequired = gradeRequirements[currentGrade] || 0;
     
-    // FIXED: Grade eligibility is ONLY based on points, not sections
+    // Grade eligibility is ONLY based on points
     const canRequestCertificate = totalPoints >= pointsRequired;
     
     return NextResponse.json({
@@ -100,6 +118,7 @@ export async function GET(request) {
       totalPoints,
       sectionPoints,
       sectionsWithSkills: Array.from(sectionsWithSkills),
+      sectionCompletionCounts,
       canRequestCertificate,
       completionIds,
       availableCompletions: available.recordset
