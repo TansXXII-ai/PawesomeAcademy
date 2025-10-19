@@ -1,28 +1,28 @@
-// app/components/admin/AdminPanel.js
+// app/components/admin/AdminUsersTab.js
 'use client';
 import React, { useState, useContext, useEffect } from 'react';
-import { Book } from 'lucide-react';
+import { Plus, Search, User, Mail, Calendar, Key, Trash2, Filter, X } from 'lucide-react';
 import { AppContext } from '@/app/page';
 import { ToastContext } from '@/app/components/shared/ToastProvider';
+import { getRoleDisplayName } from '@/lib/constants';
 
-export default function AdminPanel() {
-  const { currentUser, sections } = useContext(AppContext);
+export default function AdminUsersTab() {
+  const { currentUser } = useContext(AppContext);
   const { showToast } = useContext(ToastContext);
-  const [activeTab, setActiveTab] = useState('users');
   const [users, setUsers] = useState([]);
-  const [adminSections, setAdminSections] = useState([]);
-  const [skills, setSkills] = useState([]);
-  const [classes, setClasses] = useState([]);
-  const [trainers, setTrainers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Modal states
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [sortField, setSortField] = useState('created_at');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ show: false, user: null });
   const [passwordModal, setPasswordModal] = useState({ show: false, user: null, password: '' });
-  const [deleteClassModal, setDeleteClassModal] = useState({ show: false, class: null });
-  const [editClassModal, setEditClassModal] = useState({ show: false, class: null });
+  
+  const itemsPerPage = 25;
 
-  // User form state
   const [userForm, setUserForm] = useState({
     email: '',
     username: '',
@@ -30,44 +30,13 @@ export default function AdminPanel() {
     role: 'member'
   });
 
-  // Section form state
-  const [sectionForm, setSectionForm] = useState({
-    name: '',
-    description: '',
-    display_order: 99
-  });
-
-  // Skill form state
-  const [skillForm, setSkillForm] = useState({
-    section_id: '',
-    title: '',
-    description: '',
-    difficulty: 1,
-    points: 2,
-    display_order: 99
-  });
-
-  // Class form state
-  const [classForm, setClassForm] = useState({
-    name: '',
-    day_of_week: 'Monday',
-    time_slot: '',
-    trainer_id: ''
-  });
+  useEffect(() => {
+    loadUsers();
+  }, []);
 
   useEffect(() => {
-    if (activeTab === 'users') {
-      loadUsers();
-    } else if (activeTab === 'sections') {
-      loadSections();
-    } else if (activeTab === 'skills') {
-      loadSkills();
-      loadSections();
-    } else if (activeTab === 'classes') {
-      loadClasses();
-      loadTrainers();
-    }
-  }, [activeTab]);
+    filterAndSortUsers();
+  }, [users, searchTerm, roleFilter, sortField, sortDirection]);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -77,58 +46,59 @@ export default function AdminPanel() {
       setUsers(data);
     } catch (error) {
       console.error('Failed to load users:', error);
+      showToast('Failed to load users', 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadSections = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/sections');
-      const data = await response.json();
-      setAdminSections(data);
-    } catch (error) {
-      console.error('Failed to load sections:', error);
-    } finally {
-      setLoading(false);
+  const filterAndSortUsers = () => {
+    let filtered = [...users];
+
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(user => 
+        user.username.toLowerCase().includes(term) ||
+        user.email.toLowerCase().includes(term)
+      );
     }
+
+    // Role filter
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(user => user.role === roleFilter);
+    }
+
+    // Sort
+    filtered.sort((a, b) => {
+      let aVal = a[sortField];
+      let bVal = b[sortField];
+
+      if (sortField === 'created_at') {
+        aVal = new Date(aVal);
+        bVal = new Date(bVal);
+      } else if (typeof aVal === 'string') {
+        aVal = aVal.toLowerCase();
+        bVal = bVal.toLowerCase();
+      }
+
+      if (sortDirection === 'asc') {
+        return aVal > bVal ? 1 : -1;
+      } else {
+        return aVal < bVal ? 1 : -1;
+      }
+    });
+
+    setFilteredUsers(filtered);
+    setCurrentPage(1); // Reset to first page when filters change
   };
 
-  const loadSkills = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/skills');
-      const data = await response.json();
-      setSkills(data);
-    } catch (error) {
-      console.error('Failed to load skills:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadClasses = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/classes?includeMembers=true');
-      const data = await response.json();
-      setClasses(data);
-    } catch (error) {
-      console.error('Failed to load classes:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const loadTrainers = async () => {
-    try {
-      const response = await fetch('/api/users');
-      const users = await response.json();
-      const trainerList = users.filter(u => u.role === 'trainer' || u.role === 'admin');
-      setTrainers(trainerList);
-    } catch (error) {
-      console.error('Failed to load trainers:', error);
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
     }
   };
 
@@ -148,6 +118,7 @@ export default function AdminPanel() {
 
       showToast('User created successfully!', 'success');
       setUserForm({ email: '', username: '', password: '', role: 'member' });
+      setShowCreateModal(false);
       loadUsers();
     } catch (error) {
       showToast(error.message, 'error');
@@ -201,151 +172,238 @@ export default function AdminPanel() {
     }
   };
 
-  const handleCreateSection = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/sections', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sectionForm)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create section');
-      }
-
-      showToast('Section created successfully!', 'success');
-      setSectionForm({ name: '', description: '', display_order: 99 });
-      loadSections();
-    } catch (error) {
-      showToast(error.message, 'error');
-    }
+  const getRoleStats = () => {
+    const stats = {
+      all: users.length,
+      member: users.filter(u => u.role === 'member').length,
+      trainer: users.filter(u => u.role === 'trainer').length,
+      admin: users.filter(u => u.role === 'admin').length
+    };
+    return stats;
   };
 
-  const handleCreateSkill = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/skills', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(skillForm)
-      });
+  const stats = getRoleStats();
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create skill');
-      }
-
-      showToast('Skill created successfully!', 'success');
-      setSkillForm({
-        section_id: skillForm.section_id,
-        title: '',
-        description: '',
-        difficulty: 1,
-        points: 2,
-        display_order: 99
-      });
-      loadSkills();
-    } catch (error) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const handleCreateClass = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/classes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(classForm)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create class');
-      }
-
-      showToast('Class created successfully!', 'success');
-      setClassForm({
-        name: '',
-        day_of_week: 'Monday',
-        time_slot: '',
-        trainer_id: ''
-      });
-      loadClasses();
-    } catch (error) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const handleUpdateClass = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`/api/classes/${editClassModal.class.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editClassModal.class)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update class');
-      }
-
-      showToast('Class updated successfully!', 'success');
-      setEditClassModal({ show: false, class: null });
-      loadClasses();
-    } catch (error) {
-      showToast(error.message, 'error');
-    }
-  };
-
-  const handleDeleteClass = async () => {
-    try {
-      const response = await fetch(`/api/classes/${deleteClassModal.class.id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete class');
-      }
-
-      showToast('Class deleted successfully!', 'success');
-      setDeleteClassModal({ show: false, class: null });
-      loadClasses();
-    } catch (error) {
-      showToast(error.message, 'error');
-    }
-  };
+  if (loading && users.length === 0) {
+    return <div className="text-center py-8">Loading users...</div>;
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-        <h2 className="text-2xl font-bold text-[#32303b]">Admin Panel</h2>
-        <p className="text-gray-600 mt-1">Manage users, skills, and sections</p>
-      </div>
-
-      <div className="flex space-x-2 border-b-2 border-[#dcac6e]">
-        {['users', 'sections', 'skills', 'classes'].map(tab => (
+    <div className="space-y-4">
+      {/* Header with Stats and Create Button */}
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-xl font-bold text-[#32303b]">User Management</h3>
+            <p className="text-sm text-gray-600 mt-1">
+              {filteredUsers.length} of {users.length} users
+            </p>
+          </div>
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 capitalize ${
-              activeTab === tab
-                ? 'border-b-4 border-[#32303b] text-[#32303b] font-medium'
-                : 'text-gray-600 hover:text-[#32303b]'
-            }`}
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2 bg-[#32303b] text-white px-4 py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium"
           >
-            {tab}
+            <Plus className="w-5 h-5" />
+            <span>Create User</span>
           </button>
-        ))}
+        </div>
+
+        {/* Role Stats Pills */}
+        <div className="flex flex-wrap gap-2 mt-4">
+          {['all', 'member', 'trainer', 'admin'].map(role => (
+            <button
+              key={role}
+              onClick={() => setRoleFilter(role)}
+              className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
+                roleFilter === role
+                  ? 'bg-[#32303b] text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-[#dcac6e] hover:bg-opacity-20'
+              }`}
+            >
+              {role === 'all' ? 'All Users' : getRoleDisplayName(role)} ({stats[role]})
+            </button>
+          ))}
+        </div>
       </div>
 
-      {activeTab === 'users' && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
+      {/* Search Bar */}
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search by name or email..."
+            className="w-full pl-10 pr-10 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-[#32303b]"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Users Table */}
+      <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-[#32303b] text-white">
+              <tr>
+                <th 
+                  className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-[#43414d]"
+                  onClick={() => handleSort('username')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Name</span>
+                    {sortField === 'username' && (
+                      <span className="text-[#dcac6e]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-[#43414d]"
+                  onClick={() => handleSort('email')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Email</span>
+                    {sortField === 'email' && (
+                      <span className="text-[#dcac6e]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-[#43414d]"
+                  onClick={() => handleSort('role')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Role</span>
+                    {sortField === 'role' && (
+                      <span className="text-[#dcac6e]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th 
+                  className="px-4 py-3 text-left text-sm font-medium cursor-pointer hover:bg-[#43414d]"
+                  onClick={() => handleSort('created_at')}
+                >
+                  <div className="flex items-center space-x-1">
+                    <span>Created</span>
+                    {sortField === 'created_at' && (
+                      <span className="text-[#dcac6e]">{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                    )}
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-right text-sm font-medium">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {paginatedUsers.map((user, index) => (
+                <tr 
+                  key={user.id}
+                  className={`hover:bg-[#dcac6e] hover:bg-opacity-10 transition ${
+                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                  }`}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center space-x-2">
+                      <User className="w-4 h-4 text-[#dcac6e]" />
+                      <span className="font-medium text-[#32303b]">{user.username}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center space-x-2">
+                      <Mail className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-700">{user.email}</span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                      user.role === 'trainer' ? 'bg-blue-100 text-blue-800' :
+                      'bg-green-100 text-green-800'
+                    }`}>
+                      {getRoleDisplayName(user.role)}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center space-x-2">
+                      <Calendar className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        {new Date(user.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end space-x-2">
+                      <button
+                        onClick={() => setPasswordModal({ show: true, user, password: '' })}
+                        className="p-2 text-[#dcac6e] hover:bg-[#dcac6e] hover:bg-opacity-20 rounded transition"
+                        title="Reset Password"
+                      >
+                        <Key className="w-4 h-4" />
+                      </button>
+                      {user.id !== currentUser.id && (
+                        <button
+                          onClick={() => setDeleteModal({ show: true, user })}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded transition"
+                          title="Delete User"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="border-t border-[#dcac6e] px-4 py-3 flex items-center justify-between bg-gray-50">
+            <div className="text-sm text-gray-600">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredUsers.length)} of {filteredUsers.length}
+            </div>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1 border-2 border-[#dcac6e] rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#dcac6e] hover:text-[#32303b] transition"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1 text-sm font-medium text-[#32303b]">
+                Page {currentPage} of {totalPages}
+              </span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 border-2 border-[#dcac6e] rounded text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#dcac6e] hover:text-[#32303b] transition"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-[#dcac6e]">
             <h3 className="text-xl font-bold text-[#32303b] mb-4">Create New User</h3>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
@@ -398,396 +456,22 @@ export default function AdminPanel() {
                 </select>
               </div>
 
-              <button
-                type="submit"
-                className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium"
-              >
-                Create User
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Existing Users</h3>
-            {loading ? (
-              <p className="text-gray-500">Loading...</p>
-            ) : (
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {users.map(user => (
-                  <div key={user.id} className="border-2 border-gray-200 rounded-lg p-3">
-                    <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <p className="font-bold text-[#32303b]">{user.username}</p>
-                        <p className="text-sm text-gray-600">{user.email}</p>
-                      </div>
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${
-                        user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                        user.role === 'trainer' ? 'bg-blue-100 text-blue-800' :
-                        'bg-green-100 text-green-800'
-                      }`}>
-                        {user.role}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 mb-3">
-                      Created: {new Date(user.created_at).toLocaleDateString()}
-                    </p>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setPasswordModal({ show: true, user, password: '' })}
-                        className="flex-1 bg-[#dcac6e] text-[#32303b] py-1.5 px-3 rounded text-sm hover:bg-[#c49654] transition font-medium"
-                      >
-                        Reset Password
-                      </button>
-                      {user.id !== currentUser.id && (
-                        <button
-                          onClick={() => setDeleteModal({ show: true, user })}
-                          className="flex-1 bg-red-600 text-white py-1.5 px-3 rounded text-sm hover:bg-red-700 transition font-medium"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'sections' && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Create New Section</h3>
-            <form onSubmit={handleCreateSection} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Section Name *</label>
-                <input
-                  type="text"
-                  value={sectionForm.name}
-                  onChange={(e) => setSectionForm({ ...sectionForm, name: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="e.g., Recall, Leads, Life Skills"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Description *</label>
-                <textarea
-                  value={sectionForm.description}
-                  onChange={(e) => setSectionForm({ ...sectionForm, description: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg h-24 focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="Brief description of this section"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Display Order</label>
-                <input
-                  type="number"
-                  value={sectionForm.display_order}
-                  onChange={(e) => setSectionForm({ ...sectionForm, display_order: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="99"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium"
-              >
-                Create Section
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Existing Sections</h3>
-            {loading ? (
-              <p className="text-gray-500">Loading...</p>
-            ) : (
-              <div className="space-y-3">
-                {adminSections.sort((a, b) => a.display_order - b.display_order).map(section => (
-                  <div key={section.id} className="border-2 border-[#dcac6e] rounded-lg p-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-bold text-[#32303b]">{section.name}</p>
-                        <p className="text-sm text-gray-600">{section.description}</p>
-                      </div>
-                      <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                        Order: {section.display_order}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'skills' && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Create New Skill</h3>
-            <form onSubmit={handleCreateSkill} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Section *</label>
-                <select
-                  value={skillForm.section_id}
-                  onChange={(e) => setSkillForm({ ...skillForm, section_id: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  required
+              <div className="flex space-x-3 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium"
                 >
-                  <option value="">Select a section</option>
-                  {adminSections.sort((a, b) => a.display_order - b.display_order).map(section => (
-                    <option key={section.id} value={section.id}>{section.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Skill Title *</label>
-                <input
-                  type="text"
-                  value={skillForm.title}
-                  onChange={(e) => setSkillForm({ ...skillForm, title: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="e.g., Basic Sit"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Description *</label>
-                <textarea
-                  value={skillForm.description}
-                  onChange={(e) => setSkillForm({ ...skillForm, description: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg h-24 focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="Detailed description of the skill requirements"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#32303b] mb-1">Difficulty (1-5) *</label>
-                  <select
-                    value={skillForm.difficulty}
-                    onChange={(e) => setSkillForm({ ...skillForm, difficulty: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                    required
-                  >
-                    {[1, 2, 3, 4, 5].map(level => (
-                      <option key={level} value={level}>
-                        {'⭐'.repeat(level)} ({level})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-[#32303b] mb-1">Points *</label>
-                  <select
-                    value={skillForm.points}
-                    onChange={(e) => setSkillForm({ ...skillForm, points: parseInt(e.target.value) })}
-                    className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                    required
-                  >
-                    <option value={2}>2 points</option>
-                    <option value={5}>5 points</option>
-                    <option value={10}>10 points</option>
-                    <option value={15}>15 points</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Display Order</label>
-                <input
-                  type="number"
-                  value={skillForm.display_order}
-                  onChange={(e) => setSkillForm({ ...skillForm, display_order: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="99"
-                />
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium"
-              >
-                Create Skill
-              </button>
-            </form>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Existing Skills</h3>
-            {loading ? (
-              <p className="text-gray-500">Loading...</p>
-            ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {adminSections.map(section => {
-                  const sectionSkills = skills.filter(s => s.section_id === section.id);
-                  if (sectionSkills.length === 0) return null;
-                  
-                  return (
-                    <div key={section.id} className="mb-4">
-                      <h4 className="font-bold text-[#32303b] mb-2 flex items-center">
-                        <Book className="w-4 h-4 mr-2 text-[#dcac6e]" />
-                        {section.name}
-                      </h4>
-                      <div className="space-y-2 ml-6">
-                        {sectionSkills.map(skill => (
-                          <div key={skill.id} className="border-2 border-gray-200 rounded-lg p-2">
-                            <div className="flex justify-between items-start">
-                              <div className="flex-1">
-                                <p className="font-medium text-[#32303b] text-sm">{skill.title}</p>
-                                <p className="text-xs text-gray-600 line-clamp-1">{skill.description}</p>
-                              </div>
-                              <div className="flex items-center space-x-2 ml-2">
-                                <span className="text-xs bg-gray-200 px-2 py-1 rounded">
-                                  {'⭐'.repeat(skill.difficulty)}
-                                </span>
-                                <span className="text-xs font-bold text-[#32303b]">{skill.points}pts</span>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {activeTab === 'classes' && (
-        <div className="grid md:grid-cols-2 gap-6">
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Create New Class</h3>
-            <form onSubmit={handleCreateClass} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Class Name *</label>
-                <input
-                  type="text"
-                  value={classForm.name}
-                  onChange={(e) => setClassForm({ ...classForm, name: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="e.g., Beginner Puppies, Advanced Tricks"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Day of Week *</label>
-                <select
-                  value={classForm.day_of_week}
-                  onChange={(e) => setClassForm({ ...classForm, day_of_week: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  required
+                  Create User
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowCreateModal(false)}
+                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
                 >
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                    <option key={day} value={day}>{day}</option>
-                  ))}
-                </select>
+                  Cancel
+                </button>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Time Slot *</label>
-                <input
-                  type="text"
-                  value={classForm.time_slot}
-                  onChange={(e) => setClassForm({ ...classForm, time_slot: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  placeholder="e.g., 10:00 AM - 11:00 AM"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Trainer *</label>
-                <select
-                  value={classForm.trainer_id}
-                  onChange={(e) => setClassForm({ ...classForm, trainer_id: parseInt(e.target.value) })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  required
-                >
-                  <option value="">Select a trainer</option>
-                  {trainers.map(trainer => (
-                    <option key={trainer.id} value={trainer.id}>
-                      {trainer.username} ({trainer.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium"
-              >
-                Create Class
-              </button>
             </form>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Existing Classes</h3>
-            {loading ? (
-              <p className="text-gray-500">Loading...</p>
-            ) : (
-              <div className="space-y-3 max-h-[600px] overflow-y-auto">
-                {classes.length === 0 ? (
-                  <p className="text-gray-500 text-center py-4">No classes created yet</p>
-                ) : (
-                  classes
-                    .sort((a, b) => {
-                      const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                      const dayA = dayOrder.indexOf(a.day_of_week);
-                      const dayB = dayOrder.indexOf(b.day_of_week);
-                      if (dayA !== dayB) return dayA - dayB;
-                      return a.time_slot.localeCompare(b.time_slot);
-                    })
-                    .map(classItem => (
-                      <div key={classItem.id} className="border-2 border-[#dcac6e] rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex-1">
-                            <p className="font-bold text-[#32303b]">{classItem.name}</p>
-                            <p className="text-sm text-gray-600">{classItem.day_of_week} • {classItem.time_slot}</p>
-                            <p className="text-sm text-gray-600">Trainer: {classItem.trainer_name}</p>
-                          </div>
-                          <div className="flex items-center space-x-1 bg-[#dcac6e] bg-opacity-20 px-2 py-1 rounded">
-                            <span className="text-xs font-bold text-[#32303b]">{classItem.member_count || 0}</span>
-                            <span className="text-xs text-gray-600">students</span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-500 mb-3">
-                          Created: {new Date(classItem.created_at).toLocaleDateString()}
-                        </p>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setEditClassModal({ show: true, class: { ...classItem } })}
-                            className="flex-1 bg-[#dcac6e] text-[#32303b] py-1.5 px-3 rounded text-sm hover:bg-[#c49654] transition font-medium"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => setDeleteClassModal({ show: true, class: classItem })}
-                            className="flex-1 bg-red-600 text-white py-1.5 px-3 rounded text-sm hover:bg-red-700 transition font-medium"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                )}
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -849,129 +533,6 @@ export default function AdminPanel() {
               </button>
               <button
                 onClick={() => setPasswordModal({ show: false, user: null, password: '' })}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Class Modal */}
-      {editClassModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-[#dcac6e]">
-            <h3 className="text-xl font-bold text-[#32303b] mb-4">Edit Class</h3>
-            <form onSubmit={handleUpdateClass} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Class Name *</label>
-                <input
-                  type="text"
-                  value={editClassModal.class.name}
-                  onChange={(e) => setEditClassModal({
-                    ...editClassModal,
-                    class: { ...editClassModal.class, name: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Day of Week *</label>
-                <select
-                  value={editClassModal.class.day_of_week}
-                  onChange={(e) => setEditClassModal({
-                    ...editClassModal,
-                    class: { ...editClassModal.class, day_of_week: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  required
-                >
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
-                    <option key={day} value={day}>{day}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Time Slot *</label>
-                <input
-                  type="text"
-                  value={editClassModal.class.time_slot}
-                  onChange={(e) => setEditClassModal({
-                    ...editClassModal,
-                    class: { ...editClassModal.class, time_slot: e.target.value }
-                  })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#32303b] mb-1">Trainer *</label>
-                <select
-                  value={editClassModal.class.trainer_id}
-                  onChange={(e) => setEditClassModal({
-                    ...editClassModal,
-                    class: { ...editClassModal.class, trainer_id: parseInt(e.target.value) }
-                  })}
-                  className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
-                  required
-                >
-                  <option value="">Select a trainer</option>
-                  {trainers.map(trainer => (
-                    <option key={trainer.id} value={trainer.id}>
-                      {trainer.username} ({trainer.email})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 bg-[#32303b] text-white py-2 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition"
-                >
-                  Update Class
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditClassModal({ show: false, class: null })}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Class Confirmation Modal */}
-      {deleteClassModal.show && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-red-500">
-            <h3 className="text-xl font-bold text-red-600 mb-4">Delete Class</h3>
-            <p className="text-gray-700 mb-2">
-              Are you sure you want to delete <strong>{deleteClassModal.class?.name}</strong>?
-            </p>
-            <p className="text-sm text-gray-600 mb-2">
-              This class has <strong>{deleteClassModal.class?.member_count || 0}</strong> students enrolled.
-            </p>
-            <p className="text-sm text-gray-600 mb-6">
-              Students will remain in the system but will no longer be associated with this class.
-            </p>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleDeleteClass}
-                className="flex-1 bg-red-600 text-white py-2 rounded-lg hover:bg-red-700 transition"
-              >
-                Delete Class
-              </button>
-              <button
-                onClick={() => setDeleteClassModal({ show: false, class: null })}
                 className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition"
               >
                 Cancel
