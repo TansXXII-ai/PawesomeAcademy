@@ -51,7 +51,7 @@ export default function Navigation({ view, setView }) {
   const navItems = [
     { key: 'dashboard', label: 'Dashboard', icon: Award, roles: ['member', 'trainer', 'admin'] },
     { key: 'sections', label: 'Skills', icon: Book, roles: ['member', 'trainer', 'admin'] },
-    { key: 'myclasses', label: 'My Classes', icon: User, roles: ['trainer', 'admin'] },
+    { key: 'myclasses', label: 'Classes', icon: User, roles: ['trainer', 'admin'] },
     { key: 'leaderboard', label: 'Leaderboard', icon: Trophy, roles: ['trainer', 'admin'] },
     { key: 'inbox', label: `Inbox ${pendingCount > 0 ? `(${pendingCount})` : ''}`, icon: Clock, roles: ['trainer', 'admin'] },
     { key: 'certificates', label: 'Certificates', icon: FileText, roles: ['member', 'trainer', 'admin'] },
