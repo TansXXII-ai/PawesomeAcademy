@@ -1,4 +1,4 @@
-// app/components/leaderboard/LeaderboardView.js
+// app/components/leaderboard/LeaderboardView.js - REPLACE ENTIRE FILE
 'use client';
 import React, { useState, useContext, useEffect } from 'react';
 import { Trophy } from 'lucide-react';
@@ -11,6 +11,7 @@ export default function LeaderboardView() {
   const [selectedView, setSelectedView] = useState('overall');
   const [selectedClass, setSelectedClass] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showMyClassesOnly, setShowMyClassesOnly] = useState(currentUser.role === 'trainer');
 
   useEffect(() => {
     loadLeaderboardData();
@@ -43,8 +44,14 @@ export default function LeaderboardView() {
 
   const getAllStudents = () => {
     if (!classData || !classData.classes) return [];
+    
+    // Filter classes based on toggle
+    const classesToShow = showMyClassesOnly && currentUser.role === 'admin'
+      ? classData.classes.filter(cls => cls.trainer_id === currentUser.id)
+      : classData.classes;
+    
     const allStudents = [];
-    classData.classes.forEach(cls => {
+    classesToShow.forEach(cls => {
       if (cls.students) {
         cls.students.forEach(student => {
           allStudents.push({
@@ -72,12 +79,22 @@ export default function LeaderboardView() {
     });
   };
 
+  // Get filtered classes for the class selector
+  const getFilteredClasses = () => {
+    if (!classData || !classData.classes) return [];
+    if (showMyClassesOnly && currentUser.role === 'admin') {
+      return classData.classes.filter(cls => cls.trainer_id === currentUser.id);
+    }
+    return classData.classes;
+  };
+
   if (loading) {
     return <div className="text-center py-8">Loading leaderboard...</div>;
   }
 
   const overallStudents = getAllStudents();
   const classStudents = selectedClass ? getClassStudents(selectedClass) : [];
+  const filteredClasses = getFilteredClasses();
 
   return (
     <div className="space-y-6">
@@ -87,7 +104,23 @@ export default function LeaderboardView() {
             <h2 className="text-2xl font-bold text-[#32303b]">Leaderboard</h2>
             <p className="text-gray-600">Top performing students</p>
           </div>
-          <Trophy className="w-12 h-12 text-[#dcac6e]" />
+          <div className="flex items-center space-x-4">
+            {/* Filter Toggle - Only show for admins */}
+            {currentUser.role === 'admin' && (
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showMyClassesOnly}
+                  onChange={(e) => setShowMyClassesOnly(e.target.checked)}
+                  className="w-4 h-4 accent-[#32303b]"
+                />
+                <span className="text-sm font-medium text-[#32303b]">
+                  My Classes Only
+                </span>
+              </label>
+            )}
+            <Trophy className="w-12 h-12 text-[#dcac6e]" />
+          </div>
         </div>
       </div>
 
@@ -114,18 +147,18 @@ export default function LeaderboardView() {
         </button>
       </div>
 
-      {selectedView === 'class' && classData && classData.classes && (
+      {selectedView === 'class' && filteredClasses.length > 0 && (
         <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-4">
           <label className="block text-sm font-medium text-[#32303b] mb-2">Select Class</label>
           <select
             value={selectedClass?.id || ''}
             onChange={(e) => {
-              const cls = classData.classes.find(c => c.id === parseInt(e.target.value));
+              const cls = filteredClasses.find(c => c.id === parseInt(e.target.value));
               setSelectedClass(cls);
             }}
             className="w-full px-4 py-2 border-2 border-[#dcac6e] rounded-lg focus:ring-2 focus:ring-[#32303b] focus:border-transparent"
           >
-            {classData.classes.map(cls => (
+            {filteredClasses.map(cls => (
               <option key={cls.id} value={cls.id}>
                 {cls.name} - {cls.day_of_week} {cls.time_slot}
               </option>
@@ -141,6 +174,7 @@ export default function LeaderboardView() {
           </h3>
           <p className="text-sm text-gray-600 mt-1">
             Sorted by grade level and total points
+            {showMyClassesOnly && currentUser.role === 'admin' && ' (My Classes Only)'}
           </p>
         </div>
 
@@ -156,7 +190,9 @@ export default function LeaderboardView() {
             ))}
             {(selectedView === 'overall' ? overallStudents : classStudents).length === 0 && (
               <div className="text-center py-8 text-gray-500">
-                No students found
+                {showMyClassesOnly && currentUser.role === 'admin'
+                  ? 'No students in your classes yet.'
+                  : 'No students found'}
               </div>
             )}
           </div>
