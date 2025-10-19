@@ -1,4 +1,4 @@
-// app/components/dashboard/Dashboard.js
+// app/components/dashboard/Dashboard.js - COMPLETE FILE - REPLACE ENTIRE FILE
 'use client';
 import React, { useState, useContext, useEffect } from 'react';
 import { Award, Book, User, Star, Check, Clock, Upload, ChevronRight, Trophy, CheckSquare, Square } from 'lucide-react';
@@ -120,6 +120,21 @@ export default function Dashboard() {
 function MemberDashboard({ profile, progress, sections, currentUser }) {
   const { showToast } = useContext(ToastContext);
   const [showRequestModal, setShowRequestModal] = useState(false);
+  const [allTimeStats, setAllTimeStats] = useState({ total_points: 0, total_skills: 0 });
+
+  useEffect(() => {
+    loadAllTimeStats();
+  }, [currentUser]);
+
+  const loadAllTimeStats = async () => {
+    try {
+      const response = await fetch(`/api/completions/all-time?userId=${currentUser.id}`);
+      const data = await response.json();
+      setAllTimeStats(data);
+    } catch (error) {
+      console.error('Failed to load all-time stats:', error);
+    }
+  };
 
   if (!progress) {
     return <div className="text-center py-8">Failed to load progress data</div>;
@@ -165,8 +180,8 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
         {profile && <p className="text-gray-600">Training {profile.dog_name}</p>}
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
-        <div className="bg-gradient-to-br from-[#32303b] to-[#43414d] text-white rounded-lg shadow-lg p-6 border-2 border-[#dcac6e]">
+      <div className="grid md:grid-cols-4 gap-4">
+        <div className="bg-gradient-to-br from-[#32303b] to-[#43414d] text-white rounded-lg shadow-lg p-4 border-2 border-[#dcac6e]">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm opacity-90">Current Grade</span>
             <Award className="w-6 h-6 text-[#dcac6e]" />
@@ -174,17 +189,33 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
           <p className="text-4xl font-bold">Grade {currentGrade}</p>
         </div>
 
-        <div className="bg-gradient-to-br from-[#dcac6e] to-[#c49654] text-[#32303b] rounded-lg shadow-lg p-6 border-2 border-[#c49654]">
+        <div className="bg-gradient-to-br from-[#dcac6e] to-[#c49654] text-[#32303b] rounded-lg shadow-lg p-4 border-2 border-[#c49654]">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm opacity-90">Points Progress</span>
+            <span className="text-sm opacity-90">Current Points</span>
             <Star className="w-6 h-6" />
           </div>
-          <p className="text-4xl font-bold">{progress.totalPoints} / {gradeReq}</p>
+          <p className="text-3xl font-bold">{progress.totalPoints} / {gradeReq}</p>
+          <p className="text-xs opacity-75 mt-1">
+            {gradeReq - progress.totalPoints > 0 
+              ? `${gradeReq - progress.totalPoints} more needed` 
+              : 'Ready for grade!'}
+          </p>
         </div>
 
-        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white rounded-lg shadow-lg p-6 border-2 border-[#dcac6e]">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg shadow-lg p-4 border-2 border-purple-700">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm opacity-90">Sections Complete</span>
+            <span className="text-sm opacity-90">Total Points Ever</span>
+            <Trophy className="w-6 h-6 opacity-80" />
+          </div>
+          <p className="text-4xl font-bold">{allTimeStats.total_points}</p>
+          <p className="text-xs opacity-75 mt-1">
+            {allTimeStats.total_skills} skills completed
+          </p>
+        </div>
+
+        <div className="bg-gradient-to-br from-gray-700 to-gray-800 text-white rounded-lg shadow-lg p-4 border-2 border-[#dcac6e]">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm opacity-90">Sections</span>
             <Book className="w-6 h-6 text-[#dcac6e]" />
           </div>
           <p className="text-4xl font-bold">{progress.sectionsWithSkills.length} / 6</p>
@@ -196,7 +227,7 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-lg font-bold text-[#32303b] mb-2">
-                Ready for Grade {currentGrade}!
+                🎉 Ready for Grade {currentGrade}!
               </h3>
               <p className="text-[#32303b] text-sm">
                 You've earned {progress.totalPoints} points (required: {gradeReq}). Request approval from your trainer.
@@ -204,7 +235,7 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
             </div>
             <button
               onClick={() => setShowRequestModal(true)}
-              className="bg-[#32303b] text-white px-6 py-3 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium shadow-lg"
+              className="bg-[#32303b] text-white px-6 py-3 rounded-lg hover:bg-[#dcac6e] hover:text-[#32303b] transition font-medium shadow-lg whitespace-nowrap"
             >
               Request Grade Approval
             </button>
@@ -213,10 +244,22 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
       )}
 
       {!hasEnoughPoints && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <p className="text-sm text-blue-800">
-            <strong>Need {gradeReq - progress.totalPoints} more points</strong> to reach Grade {currentGrade} requirement.
-          </p>
+        <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <div className="flex-shrink-0">
+              <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">
+                {gradeReq - progress.totalPoints}
+              </div>
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-blue-900">
+                Keep Going! You're making great progress!
+              </p>
+              <p className="text-sm text-blue-800 mt-1">
+                Complete <strong>{gradeReq - progress.totalPoints} more points</strong> to reach Grade {currentGrade} requirement.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -226,12 +269,17 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
           {sections.filter(s => s.active).map(section => {
             const sectionPoints = progress.sectionPoints[section.id] || 0;
             const hasSkill = progress.sectionsWithSkills.includes(section.id);
+            const sectionCompletions = progress.sectionCompletionCounts?.[section.id] || 0;
+            
             return (
               <div key={section.id}>
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-medium text-[#32303b]">{section.name}</span>
+                  <div className="flex items-center space-x-2">
+                    <span className="font-medium text-[#32303b]">{section.name}</span>
+                    {hasSkill && <Check className="w-4 h-4 text-green-600" />}
+                  </div>
                   <span className="text-sm text-gray-600">
-                    {sectionPoints} pts {hasSkill ? '✓' : ''}
+                    {sectionPoints} pts (current) • {sectionCompletions} skills (total)
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3 border border-gray-300">
@@ -262,7 +310,7 @@ function MemberDashboard({ profile, progress, sections, currentUser }) {
               </li>
             </ul>
             <p className="text-sm text-gray-600 mb-6">
-              Your trainer will review and approve your grade completion.
+              Your trainer will review and approve your grade completion. The {progress.totalPoints} points you've earned will be locked to this grade and you'll start fresh for Grade {currentGrade + 1}.
             </p>
             <div className="flex space-x-3">
               <button
@@ -296,11 +344,18 @@ function TrainerAdminDashboard({
   skills,
   onViewStudent 
 }) {
-  const totalStudents = classData?.classes.reduce((sum, cls) => sum + cls.student_count, 0) || 0;
-  const pendingReviews = classData?.classes.reduce((sum, cls) => 
+  const [showMyClassesOnly, setShowMyClassesOnly] = useState(currentUser.role === 'trainer');
+  
+  // Filter classes based on toggle
+  const filteredClasses = showMyClassesOnly && currentUser.role === 'admin'
+    ? classData?.classes.filter(cls => cls.trainer_id === currentUser.id) || []
+    : classData?.classes || [];
+
+  const totalStudents = filteredClasses.reduce((sum, cls) => sum + cls.student_count, 0) || 0;
+  const pendingReviews = filteredClasses.reduce((sum, cls) => 
     sum + (cls.students?.reduce((s, st) => s + st.pending_submissions, 0) || 0), 0
   );
-  const readyForCert = classData?.classes.reduce((sum, cls) => 
+  const readyForCert = filteredClasses.reduce((sum, cls) => 
     sum + (cls.students?.filter(st => 
       st.progress?.total_points >= st.progress?.points_required
     ).length || 0), 0
@@ -321,12 +376,39 @@ function TrainerAdminDashboard({
   return (
     <div className="space-y-6">
       <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-6">
-        <h2 className="text-2xl font-bold text-[#32303b] mb-2">
-          {currentUser.role === 'admin' ? 'Training Overview' : 'My Classes'}
-        </h2>
-        <p className="text-gray-600">
-          Welcome back, {classData?.trainer_name || currentUser.username}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold text-[#32303b]">
+              {currentUser.role === 'admin' ? 'Training Overview' : 'My Classes'}
+            </h2>
+            <p className="text-gray-600">
+              Welcome back, {classData?.trainer_name || currentUser.username}
+            </p>
+          </div>
+          
+          {/* Filter Toggle - Only show for admins */}
+          {currentUser.role === 'admin' && (
+            <div className="flex items-center space-x-3">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showMyClassesOnly}
+                  onChange={(e) => {
+                    setShowMyClassesOnly(e.target.checked);
+                    // Reset selected class when toggling
+                    if (filteredClasses.length > 0) {
+                      setSelectedClass(filteredClasses[0]);
+                    }
+                  }}
+                  className="w-4 h-4 accent-[#32303b]"
+                />
+                <span className="text-sm font-medium text-[#32303b]">
+                  Show My Classes Only
+                </span>
+              </label>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -335,14 +417,16 @@ function TrainerAdminDashboard({
             <User className="w-6 h-6 text-[#dcac6e]" />
           </div>
           <p className="text-3xl font-bold">{totalStudents}</p>
-          <p className="text-sm opacity-90">Total Students</p>
+          <p className="text-sm opacity-90">
+            {showMyClassesOnly && currentUser.role === 'admin' ? 'My Students' : 'Total Students'}
+          </p>
         </div>
 
         <div className="bg-gradient-to-br from-[#dcac6e] to-[#c49654] text-[#32303b] rounded-lg shadow-lg p-4 border-2 border-[#c49654]">
           <div className="flex items-center justify-between mb-2">
             <Book className="w-6 h-6" />
           </div>
-          <p className="text-3xl font-bold">{classData?.classes.length || 0}</p>
+          <p className="text-3xl font-bold">{filteredClasses.length || 0}</p>
           <p className="text-sm opacity-90">Classes</p>
         </div>
 
@@ -363,10 +447,10 @@ function TrainerAdminDashboard({
         </div>
       </div>
 
-      {classData && classData.classes && classData.classes.length > 0 ? (
+      {filteredClasses && filteredClasses.length > 0 ? (
         <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e]">
           <div className="border-b border-[#dcac6e] flex overflow-x-auto">
-            {classData.classes.map(cls => (
+            {filteredClasses.map(cls => (
               <button
                 key={cls.id}
                 onClick={() => setSelectedClass(cls)}
@@ -444,13 +528,15 @@ function TrainerAdminDashboard({
       ) : (
         <div className="bg-white rounded-lg shadow-lg border-2 border-[#dcac6e] p-8 text-center">
           <p className="text-gray-600 mb-2">
-            {currentUser.role === 'admin' 
-              ? 'No classes have been created yet.' 
-              : 'You are not assigned to any classes yet.'}
+            {showMyClassesOnly 
+              ? 'You have no classes assigned yet.' 
+              : currentUser.role === 'admin' 
+                ? 'No classes have been created yet.' 
+                : 'You are not assigned to any classes yet.'}
           </p>
           <p className="text-sm text-gray-500">
             {currentUser.role === 'admin'
-              ? 'Create a class to get started.'
+              ? 'Create a class to get started or toggle "Show My Classes Only" to see all classes.'
               : 'Contact an administrator to be assigned to a class.'}
           </p>
         </div>
